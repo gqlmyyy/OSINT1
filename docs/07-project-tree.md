@@ -54,7 +54,7 @@ graphintel/
 │   │   │   ├── ratelimit.py        per-user/IP API throttle middleware
 │   │   │   └── audit.py            audit log writer
 │   │   └── demo/seed.py            offline synthetic investigation (§36)
-│   ├── alembic/                    migrations
+│   ├── alembic/                    migrations (env.py renders GUID/JSONB correctly)
 │   ├── tests/                      unit · integration · security · provider mocks
 │   ├── pyproject.toml              deps, ruff, mypy, pytest config
 │   └── Dockerfile
@@ -80,8 +80,10 @@ graphintel/
 │   └── maigret/ sherlock/ holehe/          optional subprocess adapters
 │
 ├── docker/                         nginx.conf, entrypoints
-├── docs/                           01…08 design docs + OPERATIONS + LEGAL
+├── docs/                           01…08 design docs
 ├── scripts/                        dev.sh, check.sh, seed_demo.py
+├── ruff.toml  pytest.ini            one lint and test policy for backend + plugins
+├── LICENSE                         MIT
 ├── .github/workflows/ci.yml        lint · types · tests · security scans
 ├── docker-compose.yml              frontend backend worker postgres redis
 ├── .env.example

@@ -109,3 +109,32 @@ async def test_self_loops_are_rejected(session, investigation) -> None:
             source=a, target=a, rel_type=RelationshipType.ASSOCIATED_WITH, confidence=0.5,
             provider="x", evidence={"observation_id": "obs-1"}, assertion=Assertion.OBSERVED,
         )
+
+
+async def test_website_and_domain_for_one_host_are_a_single_node(session, investigation) -> None:
+    """Two providers describing the same host must not produce two lookalike nodes."""
+    from app.evidence.extractor import EntityExtractor
+    from app.providers.types import Observation, Target
+
+    extractor = EntityExtractor(session, investigation.id)
+    target = Target(type="domain", value="example.com", normalized="example.com", depth=0)
+    await extractor.ingest(
+        target,
+        [
+            Observation(
+                provider="website", kind="website", value="example.com", confidence=0.9,
+                url="https://example.com", data={"title": "Example", "generator": "Hugo"},
+            ),
+            Observation(
+                provider="dns", kind="domain", value="example.com", confidence=0.95,
+                data={"record": "NS", "role": "ns"},
+            ),
+        ],
+    )
+    await session.flush()
+
+    store = GraphStore(session, investigation.id)
+    hosts = [e for e in await store.entities() if e.canonical_key == "domain:example.com"]
+    assert len(hosts) == 1, "the same host reported as website and domain must be one node"
+    assert hosts[0].attributes["title"] == "Example", "website attributes are merged in"
+    assert sorted(hosts[0].sources) == ["dns", "target", "website"]

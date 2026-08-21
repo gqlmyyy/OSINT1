@@ -158,3 +158,30 @@ def test_default_secret_refused_in_production() -> None:
 def test_wildcard_cors_refused_in_production() -> None:
     with pytest.raises(ValueError, match="CORS_ORIGINS"):
         Settings(env="production", secret_key="z" * 40, cors_origins=["*"])
+
+
+def test_pinning_is_disabled_behind_a_mandated_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A forward proxy resolves names itself; pinning would break CONNECT for no gain."""
+    for name in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    assert SafeAsyncClient(SETTINGS)._pin_connections is True
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.internal:3128")
+    assert SafeAsyncClient(SETTINGS)._pin_connections is False
+
+
+async def test_validation_still_runs_when_pinning_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disabling pinning must not disable the policy checks that matter most."""
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.internal:3128")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/start":
+            return httpx.Response(302, headers={"location": "http://169.254.169.254/latest"})
+        return httpx.Response(200, text="should never be reached")
+
+    client = SafeAsyncClient(SETTINGS, transport=httpx.MockTransport(handler))
+    with pytest.raises(SSRFBlocked):
+        await client.get("http://127.0.0.1/")
+    with pytest.raises(SSRFBlocked):
+        await client.get("https://93.184.216.34/start")
+    await client.aclose()

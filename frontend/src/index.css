@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /* Investigation tooling is read for long stretches; keep scrollbars quiet but present. */
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: theme('colors.ink.900');
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.line.DEFAULT');
+    border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.line.bright');
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 1px;
+  }
+}

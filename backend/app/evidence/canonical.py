@@ -69,8 +69,11 @@ def canonical_key(kind: str, value: str, attributes: dict[str, Any] | None = Non
     if entity_type is EntityType.PHONE:
         return f"phone:{n.normalize_phone(value)}"
     if entity_type in (EntityType.DOMAIN, EntityType.WEBSITE):
-        prefix = "domain" if entity_type is EntityType.DOMAIN else "website"
-        return f"{prefix}:{n.normalize_domain(value)}"
+        # A registered name and the site served on it are one thing to an analyst, and
+        # different providers report the same host under either label (DNS says "domain",
+        # a page fetch says "website"). Sharing one key namespace keeps them a single
+        # node with merged attributes instead of two lookalikes in separate components.
+        return f"domain:{n.normalize_domain(value)}"
     if entity_type is EntityType.IP:
         return f"ip:{n.normalize_ip(value)}"
     if entity_type is EntityType.URL:

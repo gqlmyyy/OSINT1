@@ -88,6 +88,10 @@ this project.
    treat `plugins/` as source code under review.*
 2. `httpx`/`h11` request-smuggling class bugs are inherited from dependencies.
    *Mitigation: `pip-audit` in CI, pinned ranges.*
-3. Correlation output can be wrong about real people. *Mitigation: no verdict is ever
+3. **Behind a mandated forward proxy** (`HTTPS_PROXY` and friends), the proxy performs
+   name resolution, so IP pinning is disabled — every other check still runs on every
+   request and every redirect hop, but rebinding protection then depends on the proxy.
+   Covered by `test_ssrf.py::test_validation_still_runs_when_pinning_is_off`.
+4. Correlation output can be wrong about real people. *Mitigation: no verdict is ever
    rendered as fact — bands, reasons, and evidence links are mandatory in every surface,
    API and UI alike.*

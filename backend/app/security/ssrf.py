@@ -14,6 +14,8 @@ failure modes that plain allow/deny lists leave open:
 from __future__ import annotations
 
 import ipaddress
+import logging
+import os
 import socket
 from dataclasses import dataclass
 from types import TracebackType
@@ -39,6 +41,28 @@ BLOCKED_HOSTNAMES = frozenset(
 
 #: Cloud instance-metadata addresses, blocked explicitly as well as by range.
 BLOCKED_ADDRESSES = frozenset({"169.254.169.254", "fd00:ec2::254", "100.100.100.200"})
+
+
+logger = logging.getLogger(__name__)
+
+#: Environment variables that mean "all egress goes through this forward proxy".
+PROXY_ENV_VARS = (
+    "HTTPS_PROXY",
+    "https_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+)
+
+
+def configured_proxy() -> str | None:
+    """Return the forward proxy the environment mandates, if any."""
+    for name in PROXY_ENV_VARS:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
 
 
 class SSRFBlocked(ValueError):
@@ -164,7 +188,15 @@ class SafeAsyncClient:
         self.settings = settings or get_settings()
         self.timeout = timeout if timeout is not None else self.settings.http_timeout_seconds
         self.max_bytes = max_bytes if max_bytes is not None else self.settings.http_max_bytes
-        self._pin_connections = transport is None
+
+        # Behind a mandated forward proxy the proxy performs the name resolution, so
+        # pinning is both ineffective and actively breaks CONNECT against proxies that
+        # allowlist by hostname. Validation still runs on every request and every
+        # redirect hop; only the pinned connect is skipped. See docs/06 residual risks.
+        self._proxy = configured_proxy()
+        if self._proxy and transport is None:
+            logger.debug("forward proxy configured; IP pinning disabled for this client")
+        self._pin_connections = transport is None and self._proxy is None
         base_headers = {
             "User-Agent": self.settings.user_agent,
             "Accept-Encoding": "gzip, deflate",

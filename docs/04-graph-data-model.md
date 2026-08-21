@@ -16,7 +16,7 @@
 | `organization` / `company` | `org:<normalized>` | url, location |
 | `location` | `location:<normalized>` | raw |
 | `image` / `avatar` | `avatar:<sha256>` | url, phash, bytes |
-| `website` | `website:<host>` | title, generator |
+| `website` | `domain:<punycode>` — shares the domain namespace on purpose | title, generator |
 | `crypto_hash` | `hash:<algo>:<hex>` | algo, subject |
 | `technology` | `tech:<normalized>` | category, version |
 
