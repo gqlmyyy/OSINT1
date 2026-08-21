@@ -271,6 +271,7 @@ All of these pass on the current tree:
 | `vitest run` | **18 passed** |
 | `vite build` | succeeds |
 | `alembic upgrade head && alembic downgrade base` | clean round trip |
+| `docker build` (both images) | built in CI on every push — see the caveat under [Status](#status) |
 
 The suite deliberately covers the failure modes, not just the happy path: duplicate
 entities, provider failure, timeout, rate limiting, invalid URLs, malformed provider
@@ -285,6 +286,13 @@ the threat model including DNS-rebinding IP pinning.
 real graph, real database, real provider architecture, working demo mode, working export,
 working tests, working Docker environment. There are no placeholder implementations or
 dummy APIs outside `app/demo/`, which is explicitly synthetic.
+
+**One thing I could not verify locally:** the container images are built by CI on every
+push, but I was unable to build them in my own environment (its egress proxy blocks
+Docker Hub blob downloads). The compose file validates, the Dockerfiles were reviewed
+line by line, and everything they run — migrations, the API, the worker, the frontend
+build — was exercised directly outside the container. Treat the first `docker compose up`
+as the confirmation.
 
 **Known limitations, stated plainly:**
 

@@ -1,0 +1,29 @@
+# Host artefacts must never leak into an image: node_modules in particular contains
+# platform-specific binaries that would break the build inside the container.
+**/node_modules
+**/dist
+**/build
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/*.egg-info
+
+.git
+.github
+.gitignore
+.env
+.env.*
+!.env.example
+
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/htmlcov
+**/*.db
+**/*.sqlite3
+**/*.log
+
+docs
+exports
