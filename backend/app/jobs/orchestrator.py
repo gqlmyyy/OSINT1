@@ -32,6 +32,7 @@ from app.models.base import utcnow
 from app.providers.registry import ProviderRegistry, RegisteredProvider, get_registry
 from app.providers.runner import ProviderRunner
 from app.providers.types import Target as ProviderTarget
+from app.social.interactions import InteractionLedger
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class ScanReport:
     entities_created: int = 0
     relationships_created: int = 0
     matches: int = 0
+    interactions: int = 0
     errors: list[str] = field(default_factory=list)
     budget: dict[str, object] = field(default_factory=dict)
 
@@ -169,8 +171,16 @@ class Orchestrator:
                 investigation.stage = InvestigationStage.CORRELATION
             engine = CorrelationEngine()
             assessments = await engine.correlate_investigation(session, request.investigation_id)
+
+            # Interaction accounting runs alongside correlation but never feeds it: how
+            # often two accounts publicly interact says nothing about whether they are
+            # the same person. See docs/09.
+            interactions = await InteractionLedger(
+                session, request.investigation_id
+            ).materialize()
             await session.commit()
             report.matches = len(assessments)
+            report.interactions = len(interactions)
             for assessment in assessments:
                 await emitter.emit(
                     "match_found",

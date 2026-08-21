@@ -276,3 +276,36 @@ export type LiveEvent =
   | { event: 'stage_changed'; stage: Stage; depth?: number }
   | { event: 'investigation_completed'; stats: GraphStats; jobs: number; matches: number; errors: string[] }
   | { event: 'error'; provider: string; message: string };
+
+// -- social intelligence layer -------------------------------------------------
+
+export interface Finding {
+  kind: 'identity' | 'interaction' | 'pivot' | 'reach';
+  severity: 'strong' | 'probable' | 'possible' | 'informational';
+  headline: string;
+  detail: string;
+  entity_ids: string[];
+  evidence_ids: string[];
+  metrics: Record<string, number>;
+}
+
+export interface FindingsResult {
+  summary: Record<string, number>;
+  findings: Finding[];
+}
+
+/** Public activity between two accounts. A count — never an identity claim. */
+export interface Interaction {
+  actor_id: string;
+  target_id: string;
+  actor_label: string;
+  target_label: string;
+  comments: number;
+  replies: number;
+  mentions: number;
+  total: number;
+  strength: 'single' | 'occasional' | 'regular' | 'frequent';
+  description: string;
+  evidence_ids: string[];
+  identity_match: string;
+}

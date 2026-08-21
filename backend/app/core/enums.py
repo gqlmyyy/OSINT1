@@ -42,6 +42,10 @@ class EntityType(StrEnum):
     WEBSITE = "website"
     CRYPTO_HASH = "crypto_hash"
     TECHNOLOGY = "technology"
+    # -- social intelligence layer --
+    POST = "post"
+    COMMENT = "comment"
+    HASHTAG = "hashtag"
 
 
 class RelationshipType(StrEnum):
@@ -61,6 +65,13 @@ class RelationshipType(StrEnum):
     REDIRECTS_TO = "REDIRECTS_TO"
     CO_OCCURS_WITH = "CO_OCCURS_WITH"
     POSSIBLE_MATCH = "POSSIBLE_MATCH"
+    # -- social intelligence layer --
+    COMMENTED_ON = "COMMENTED_ON"
+    INTERACTS_WITH = "INTERACTS_WITH"
+    REPLIED_TO = "REPLIED_TO"
+    USES_HASHTAG = "USES_HASHTAG"
+    SHARES_WEBSITE = "SHARES_WEBSITE"
+    SHARES_USERNAME = "SHARES_USERNAME"
 
 
 CORRELATION_EDGES: frozenset[RelationshipType] = frozenset(
@@ -68,8 +79,23 @@ CORRELATION_EDGES: frozenset[RelationshipType] = frozenset(
         RelationshipType.SAME_AVATAR,
         RelationshipType.SAME_EMAIL,
         RelationshipType.SAME_USERNAME,
+        RelationshipType.SHARES_WEBSITE,
+        RelationshipType.SHARES_USERNAME,
         RelationshipType.CO_OCCURS_WITH,
         RelationshipType.POSSIBLE_MATCH,
+    }
+)
+
+#: Edges that record *public activity between two parties*. They are counted, never
+#: scored as identity evidence: two accounts interacting is, if anything, weak evidence
+#: that they are different people. Keeping these out of correlation is what stops the
+#: platform manufacturing false "same person" verdicts from ordinary social activity.
+INTERACTION_EDGES: frozenset[RelationshipType] = frozenset(
+    {
+        RelationshipType.COMMENTED_ON,
+        RelationshipType.REPLIED_TO,
+        RelationshipType.MENTIONS,
+        RelationshipType.INTERACTS_WITH,
     }
 )
 
@@ -81,6 +107,16 @@ class Assertion(StrEnum):
     INFERRED = "inferred"
     CORRELATED = "correlated"
     UNVERIFIED = "unverified"
+
+
+class InteractionStrength(StrEnum):
+    """How much two parties publicly interact. Deliberately *not* a probability, and
+    deliberately unrelated to :class:`MatchBand` — see docs/09."""
+
+    SINGLE = "single"
+    OCCASIONAL = "occasional"
+    REGULAR = "regular"
+    FREQUENT = "frequent"
 
 
 class MatchBand(StrEnum):

@@ -25,6 +25,7 @@ from app.models import Investigation
 from app.providers.types import EdgeHint, Observation, Target
 from app.schemas.investigation import TargetIn
 from app.services.investigation import InvestigationService
+from app.social.interactions import InteractionLedger
 
 DEMO_USERNAME = "example_user"
 DEMO_EMAIL = "example.user@example.com"
@@ -246,6 +247,134 @@ def demo_observations() -> list[Observation]:
             data={"title": "About — Example User"},
             excerpt="Linked from the site navigation.",
         ),
+        # -- social intelligence layer: posts, comments, hashtags, interactions ----
+        _obs(
+            "mastodon",
+            "post",
+            f"https://mastodon.example/@{DEMO_USERNAME}/1",
+            days=120,
+            url=f"https://mastodon.example/@{DEMO_USERNAME}/1",
+            data={
+                "platform": "Mastodon",
+                "post_id": "1",
+                "author": DEMO_USERNAME,
+                "caption": f"Shipping the graph pipeline #osint #opensource with @collaborator_a — https://{DEMO_DOMAIN}",
+                "hashtags": ["osint", "opensource"],
+                "mentions": ["collaborator_a"],
+            },
+            excerpt="Shipping the graph pipeline #osint #opensource with @collaborator_a",
+            edges=[
+                EdgeHint(type="AUTHORED", target_kind="social_account", target_value=DEMO_USERNAME,
+                         why="Published by this account on Mastodon.", reverse=True,
+                         target_attributes={"platform": "Mastodon", "username": DEMO_USERNAME}),
+                EdgeHint(type="USES_HASHTAG", target_kind="hashtag", target_value="osint",
+                         why="Used in the public post caption."),
+                EdgeHint(type="USES_HASHTAG", target_kind="hashtag", target_value="opensource",
+                         why="Used in the public post caption."),
+                EdgeHint(type="MENTIONS", target_kind="social_account",
+                         target_value="collaborator_a",
+                         why="Mentioned in the public post caption.",
+                         target_attributes={"platform": "Mastodon",
+                                            "username": "collaborator_a"}),
+            ],
+        ),
+        _obs(
+            "mastodon",
+            "post",
+            f"https://mastodon.example/@{DEMO_USERNAME}/2",
+            days=140,
+            url=f"https://mastodon.example/@{DEMO_USERNAME}/2",
+            data={
+                "platform": "Mastodon",
+                "post_id": "2",
+                "author": DEMO_USERNAME,
+                "caption": "Notes on entity resolution #osint",
+                "hashtags": ["osint"],
+            },
+            excerpt="Notes on entity resolution #osint",
+            edges=[
+                EdgeHint(type="AUTHORED", target_kind="social_account", target_value=DEMO_USERNAME,
+                         why="Published by this account on Mastodon.", reverse=True,
+                         target_attributes={"platform": "Mastodon", "username": DEMO_USERNAME}),
+                EdgeHint(type="USES_HASHTAG", target_kind="hashtag", target_value="osint",
+                         why="Used in the public post caption."),
+            ],
+        ),
+        _obs(
+            "mastodon",
+            "social_account",
+            "commenter_b",
+            days=141,
+            url=f"https://mastodon.example/@{DEMO_USERNAME}/2",
+            label="Mastodon/commenter_b",
+            data={
+                "platform": "Mastodon",
+                "username": "commenter_b",
+                "role": "commenter",
+                "comment_text": "This matches what I saw last week.",
+                "post_id": "2",
+            },
+            match=MatchStrength.CLAIMED_LINK,
+            excerpt="This matches what I saw last week.",
+            edges=[
+                EdgeHint(type="COMMENTED_ON", target_kind="post",
+                         target_value=f"https://mastodon.example/@{DEMO_USERNAME}/2",
+                         why="Public comment on this Mastodon post.",
+                         target_attributes={"platform": "Mastodon", "post_id": "2"}),
+            ],
+        ),
+        _obs(
+            "mastodon",
+            "social_account",
+            "commenter_b",
+            days=121,
+            url=f"https://mastodon.example/@{DEMO_USERNAME}/1",
+            label="Mastodon/commenter_b",
+            data={
+                "platform": "Mastodon",
+                "username": "commenter_b",
+                "role": "commenter",
+                "comment_text": "Great write-up.",
+                "post_id": "1",
+            },
+            match=MatchStrength.CLAIMED_LINK,
+            excerpt="Great write-up.",
+            edges=[
+                EdgeHint(type="COMMENTED_ON", target_kind="post",
+                         target_value=f"https://mastodon.example/@{DEMO_USERNAME}/1",
+                         why="Public comment on this Mastodon post.",
+                         target_attributes={"platform": "Mastodon", "post_id": "1"}),
+            ],
+        ),
+        _obs(
+            "mastodon",
+            "social_account",
+            "commenter_b",
+            days=131,
+            url=f"https://mastodon.example/@{DEMO_USERNAME}/1",
+            label="Mastodon/commenter_b",
+            data={
+                "platform": "Mastodon",
+                "username": "commenter_b",
+                "role": "commenter",
+                "comment_text": "Following up on the entity resolution point.",
+                "post_id": "1",
+                "comment_id": "c3",
+            },
+            match=MatchStrength.CLAIMED_LINK,
+            excerpt="Following up on the entity resolution point.",
+            edges=[
+                EdgeHint(type="COMMENTED_ON", target_kind="post",
+                         target_value=f"https://mastodon.example/@{DEMO_USERNAME}/1",
+                         why="Public comment on this Mastodon post.",
+                         target_attributes={"platform": "Mastodon", "post_id": "1"}),
+                EdgeHint(type="MENTIONS", target_kind="social_account",
+                         target_value=DEMO_USERNAME,
+                         why="Mentioned inside a public comment.",
+                         target_attributes={"platform": "Mastodon",
+                                            "username": DEMO_USERNAME}),
+            ],
+        ),
         _obs(
             "dns",
             "ip",
@@ -341,5 +470,8 @@ async def seed_demo_investigation(session: AsyncSession, owner_id: uuid.UUID) ->
         await extractor.ingest(origin, [observation])
 
     await CorrelationEngine().correlate_investigation(session, investigation.id)
+    # Same order as a real scan: correlation and interaction accounting run side by
+    # side and never feed each other.
+    await InteractionLedger(session, investigation.id).materialize()
     await session.flush()
     return investigation

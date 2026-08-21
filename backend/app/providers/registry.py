@@ -59,16 +59,40 @@ class ProviderRegistry:
         if not root.is_dir():
             logger.warning("plugins path %s does not exist", root)
             return self
-        for entry in sorted(root.iterdir()):
-            module_file = entry / "provider.py"
-            if not entry.is_dir() or entry.name.startswith((".", "_")) or not module_file.is_file():
-                continue
+        for module_file in self._candidates(root):
+            # Namespaced by its path so plugins/social/mastodon and plugins/mastodon can
+            # coexist without one shadowing the other in sys.modules.
+            plugin_name = ".".join(module_file.parent.relative_to(root).parts)
             try:
-                self._load_plugin(entry.name, module_file)
+                self._load_plugin(plugin_name, module_file)
             except Exception as exc:  # a broken plugin must not break startup
-                self.errors.append(LoadError(entry.name, f"{exc}\n{traceback.format_exc()}"))
-                logger.exception("failed to load plugin %s", entry.name)
+                self.errors.append(LoadError(plugin_name, f"{exc}\n{traceback.format_exc()}"))
+                logger.exception("failed to load plugin %s", plugin_name)
         return self
+
+    @staticmethod
+    def _candidates(root: Path) -> list[Path]:
+        """Every ``provider.py`` up to two levels deep.
+
+        Two levels is what lets providers be grouped by domain -- plugins/social/mastodon,
+        plugins/external/maigret -- without the registry, graph engine or frontend
+        knowing anything about the grouping.
+        """
+        found: list[Path] = []
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir() or entry.name.startswith((".", "_")):
+                continue
+            if (entry / "provider.py").is_file():
+                found.append(entry / "provider.py")
+                continue
+            for nested in sorted(entry.iterdir()):
+                if (
+                    nested.is_dir()
+                    and not nested.name.startswith((".", "_"))
+                    and (nested / "provider.py").is_file()
+                ):
+                    found.append(nested / "provider.py")
+        return found
 
     @staticmethod
     def _ensure_namespace() -> None:
@@ -81,13 +105,13 @@ class ProviderRegistry:
 
     def _load_plugin(self, plugin_name: str, module_file: Path) -> None:
         self._ensure_namespace()
-        module_name = f"{PLUGIN_NAMESPACE}.{plugin_name}"
+        module_name = f"{PLUGIN_NAMESPACE}.{plugin_name.replace('.', '_')}"
         spec = importlib.util.spec_from_file_location(module_name, module_file)
         if spec is None or spec.loader is None:
             raise ImportError(f"cannot build import spec for {module_file}")
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
-        setattr(sys.modules[PLUGIN_NAMESPACE], plugin_name, module)
+        setattr(sys.modules[PLUGIN_NAMESPACE], plugin_name.replace('.', '_'), module)
         spec.loader.exec_module(module)
         classes = getattr(module, "PROVIDERS", None)
         if not classes:

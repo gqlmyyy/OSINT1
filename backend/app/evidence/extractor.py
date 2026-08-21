@@ -182,9 +182,13 @@ class EntityExtractor:
         )
         if upsert.entity.id == source_entity.id:
             return
+        head, tail = (
+            (upsert.entity, source_entity) if getattr(hint, "reverse", False)
+            else (source_entity, upsert.entity)
+        )
         edge = await self.graph.add_relationship(
-            source=source_entity,
-            target=upsert.entity,
+            source=head,
+            target=tail,
             rel_type=hint.type,
             confidence=float(observation.confidence or 0.5) * 0.95,
             provider=observation.provider,

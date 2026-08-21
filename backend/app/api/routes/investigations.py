@@ -23,7 +23,9 @@ from app.providers.registry import get_registry
 from app.schemas.common import Page
 from app.schemas.graph import (
     EntityOut,
+    FindingsOut,
     GraphOut,
+    InteractionOut,
     MatchOut,
     ObservationOut,
     RelationshipOut,
@@ -391,6 +393,43 @@ async def list_matches(
             "created_at": row.created_at,
         }
         for row in rows
+    ]
+
+
+@router.get("/{investigation_id}/findings", response_model=FindingsOut)
+async def get_findings(
+    session: SessionDep, investigation: InvestigationDep
+) -> dict[str, Any]:
+    """What was actually learned, ranked, in language a non-specialist can act on."""
+    from app.social.findings import FindingsService
+
+    return await FindingsService(session, investigation.id).build()
+
+
+@router.get("/{investigation_id}/interactions", response_model=list[InteractionOut])
+async def get_interactions(
+    session: SessionDep, investigation: InvestigationDep
+) -> list[dict[str, Any]]:
+    """Account-to-account public activity, counted. Explicitly not an identity signal."""
+    from app.social.interactions import InteractionLedger
+
+    summaries = await InteractionLedger(session, investigation.id).build()
+    return [
+        {
+            "actor_id": s.actor_id,
+            "target_id": s.target_id,
+            "actor_label": s.actor_label,
+            "target_label": s.target_label,
+            "comments": s.comments,
+            "replies": s.replies,
+            "mentions": s.mentions,
+            "total": s.total,
+            "strength": str(s.strength),
+            "description": s.describe(),
+            "evidence_ids": s.evidence_ids[:10],
+            "identity_match": "not established",
+        }
+        for s in summaries
     ]
 
 

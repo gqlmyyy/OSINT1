@@ -1,36 +1,16 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { Button, Empty, Input, timeAgo } from '@/components/ui';
+import { Empty, timeAgo } from '@/components/ui';
+import { NewInvestigationWizard } from './NewInvestigationWizard';
 
 export function InvestigationList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [targets, setTargets] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['investigations'],
     queryFn: () => api.listInvestigations({ limit: 50 }),
-  });
-
-  const create = useMutation({
-    mutationFn: () =>
-      api.createInvestigation({
-        name: name.trim(),
-        targets: targets
-          .split(/[\n,]/)
-          .map((value) => value.trim())
-          .filter(Boolean)
-          .map((value) => ({ value })),
-      }),
-    onSuccess: (investigation) => {
-      void queryClient.invalidateQueries({ queryKey: ['investigations'] });
-      navigate(`/investigations/${investigation.id}`);
-    },
-    onError: (err: Error) => setError(err.message),
   });
 
   const seedDemo = useMutation({
@@ -51,61 +31,19 @@ export function InvestigationList() {
         </p>
       </header>
 
-      <section className="mb-8 rounded border border-line bg-ink-850 p-4">
-        <h2 className="mb-3 text-2xs font-semibold uppercase tracking-wider text-fg-dim">
-          New investigation
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr_auto] sm:items-start">
-          <div>
-            <label htmlFor="inv-name" className="mb-1 block text-2xs text-fg-dim">
-              Name
-            </label>
-            <Input
-              id="inv-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="example_user research"
-            />
-          </div>
-          <div>
-            <label htmlFor="inv-targets" className="mb-1 block text-2xs text-fg-dim">
-              Targets — username, email, domain, URL, IP or phone, one per line
-            </label>
-            <textarea
-              id="inv-targets"
-              value={targets}
-              onChange={(event) => setTargets(event.target.value)}
-              rows={3}
-              placeholder={'example_user\nexample@example.com\nexample.com'}
-              className="w-full rounded border border-line bg-ink-900 px-2 py-1.5 font-mono text-xs text-fg outline-none focus:border-accent"
-            />
-          </div>
-          <div className="flex gap-2 sm:mt-5">
-            <Button
-              variant="primary"
-              disabled={!name.trim() || create.isPending}
-              onClick={() => {
-                setError(null);
-                create.mutate();
-              }}
-            >
-              Create
-            </Button>
-          </div>
-        </div>
-        {error && <p className="mt-2 text-2xs text-danger">{error}</p>}
-        <p className="mt-3 text-2xs text-fg-dim">
-          No internet access?{' '}
-          <button
-            className="text-accent hover:underline"
-            onClick={() => seedDemo.mutate()}
-            disabled={seedDemo.isPending}
-          >
-            Seed the offline demo investigation
-          </button>{' '}
-          — synthetic data, no requests leave the host.
-        </p>
-      </section>
+      <NewInvestigationWizard />
+
+      <p className="mb-8 mt-3 text-2xs text-fg-dim">
+        No internet access?{' '}
+        <button
+          className="text-accent hover:underline"
+          onClick={() => seedDemo.mutate()}
+          disabled={seedDemo.isPending}
+        >
+          Seed the offline demo investigation
+        </button>{' '}
+        — synthetic data, no requests leave the host.
+      </p>
 
       {isLoading ? (
         <Empty>Loading…</Empty>

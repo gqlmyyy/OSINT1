@@ -189,3 +189,37 @@ class SearchOut(StrictModel):
     query: str
     hits: list[SearchHit]
     total: int
+
+
+class FindingOut(StrictModel):
+    """One plain-language conclusion, with the entities and evidence behind it."""
+
+    kind: str
+    severity: str
+    headline: str
+    detail: str
+    entity_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+
+
+class FindingsOut(StrictModel):
+    summary: dict[str, Any]
+    findings: list[FindingOut]
+
+
+class InteractionOut(StrictModel):
+    """Public activity between two accounts. A count, never an identity claim."""
+
+    actor_id: uuid.UUID
+    target_id: uuid.UUID
+    actor_label: str
+    target_label: str
+    comments: int
+    replies: int
+    mentions: int
+    total: int
+    strength: str
+    description: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    identity_match: str = "not established"

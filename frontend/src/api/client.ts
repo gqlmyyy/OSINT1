@@ -1,5 +1,7 @@
 import type {
   EntityDetail,
+  FindingsResult,
+  Interaction,
   GraphPayload,
   IdentityMatch,
   Investigation,
@@ -199,6 +201,8 @@ export const api = {
   timeline: (id: string, entityId?: string) =>
     request<TimelineEvent[]>(`/investigations/${id}/timeline${query({ entity_id: entityId })}`),
   matches: (id: string) => request<IdentityMatch[]>(`/investigations/${id}/matches`),
+  findings: (id: string) => request<FindingsResult>(`/investigations/${id}/findings`),
+  interactions: (id: string) => request<Interaction[]>(`/investigations/${id}/interactions`),
   observations: (id: string, params: { provider?: string; limit?: number } = {}) =>
     request<Page<Observation>>(`/investigations/${id}/observations${query(params)}`),
   relationships: (id: string) => request<Relationship[]>(`/investigations/${id}/relationships`),

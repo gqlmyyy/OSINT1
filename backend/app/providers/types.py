@@ -94,6 +94,9 @@ class EdgeHint(BaseModel):
     target_value: str
     why: str = ""
     target_attributes: dict[str, Any] = Field(default_factory=dict)
+    #: By default the edge runs observed-entity -> target. Set this when the natural
+    #: direction is the other way, e.g. a post is AUTHORED by an account.
+    reverse: bool = False
 
 
 class Observation(BaseModel):

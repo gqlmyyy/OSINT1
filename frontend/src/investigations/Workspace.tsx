@@ -11,17 +11,18 @@ import { GraphCanvas } from '@/graph/GraphCanvas';
 import type { LayoutName } from '@/graph/elements';
 import { useInvestigationStore } from '@/store/investigation';
 import { Timeline } from '@/timeline/Timeline';
+import { Findings, Interactions } from './Findings';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
 
-type BottomTab = 'evidence' | 'timeline' | 'path';
+type BottomTab = 'findings' | 'interactions' | 'evidence' | 'timeline' | 'path';
 
 export function Workspace() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const [layout, setLayout] = useState<LayoutName>('cose');
   const [path, setPath] = useState<PathResult | null>(null);
-  const [bottomTab, setBottomTab] = useState<BottomTab>('evidence');
+  const [bottomTab, setBottomTab] = useState<BottomTab>('findings');
   const [expand, setExpand] = useState<string | undefined>();
   const [connection, setConnection] = useState<'open' | 'closed' | 'error'>('closed');
 
@@ -55,6 +56,8 @@ export function Workspace() {
         if (event.event === 'investigation_completed') {
           void queryClient.invalidateQueries({ queryKey: ['investigation', id] });
           void queryClient.invalidateQueries({ queryKey: ['matches', id] });
+          void queryClient.invalidateQueries({ queryKey: ['findings', id] });
+          void queryClient.invalidateQueries({ queryKey: ['interactions', id] });
           void queryClient.invalidateQueries({ queryKey: ['observations', id] });
           void queryClient.invalidateQueries({ queryKey: ['timeline', id] });
         }
@@ -138,7 +141,7 @@ export function Workspace() {
       <section className="col-start-2 min-h-0 border-t border-line">
         <div className="flex h-full min-h-0 flex-col">
           <nav className="flex shrink-0 gap-1 border-b border-line bg-ink-850 px-2" role="tablist">
-            {(['evidence', 'timeline', 'path'] as BottomTab[]).map((tab) => (
+            {(['findings', 'interactions', 'evidence', 'timeline', 'path'] as BottomTab[]).map((tab) => (
               <button
                 key={tab}
                 role="tab"
@@ -155,6 +158,8 @@ export function Workspace() {
             ))}
           </nav>
           <div className="min-h-0 flex-1">
+            {bottomTab === 'findings' && <Findings investigationId={id} />}
+            {bottomTab === 'interactions' && <Interactions investigationId={id} />}
             {bottomTab === 'evidence' && <EvidencePanel investigationId={id} />}
             {bottomTab === 'timeline' && <Timeline investigationId={id} />}
             {bottomTab === 'path' && <PathPanel path={path} />}

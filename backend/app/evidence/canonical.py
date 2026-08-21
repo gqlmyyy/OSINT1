@@ -30,6 +30,11 @@ KIND_TO_ENTITY: dict[str, EntityType] = {
     "technology": EntityType.TECHNOLOGY,
     "display_name": EntityType.PERSON,
     "full_name": EntityType.PERSON,
+    # -- social intelligence layer --
+    "post": EntityType.POST,
+    "reel": EntityType.POST,
+    "comment": EntityType.COMMENT,
+    "hashtag": EntityType.HASHTAG,
 }
 
 
@@ -93,14 +98,60 @@ def canonical_key(kind: str, value: str, attributes: dict[str, Any] | None = Non
         return f"org:{n.normalize_text(value)}"
     if entity_type is EntityType.LOCATION:
         return f"location:{n.normalize_text(value)}"
+    if entity_type is EntityType.POST:
+        platform = n.normalize_text(str(attributes.get("platform") or "unknown")).replace(" ", "")
+        # A post is identified by the platform's own id where one is published, so the
+        # same post reported by two providers stays one node; the canonical URL is the
+        # fallback, since that is what every source can agree on.
+        post_id = attributes.get("post_id") or attributes.get("shortcode")
+        if post_id:
+            return f"{platform}:post:{str(post_id).strip().lower()}"
+        digest = hashlib.sha1(n.normalize_url(value).encode(), usedforsecurity=False).hexdigest()
+        return f"{platform}:post:url:{digest}"
+
+    if entity_type is EntityType.COMMENT:
+        platform = n.normalize_text(str(attributes.get("platform") or "unknown")).replace(" ", "")
+        comment_id = attributes.get("comment_id")
+        if comment_id:
+            return f"{platform}:comment:{str(comment_id).strip().lower()}"
+        # No published id: identify by who said what, where. Two captures of the same
+        # comment collapse; two different comments never do.
+        author = n.normalize_username(str(attributes.get("author") or ""))
+        parent = str(attributes.get("post_key") or "")
+        payload = f"{parent}|{author}|{n.normalize_text(value)}".encode()
+        return f"{platform}:comment:{hashlib.sha1(payload, usedforsecurity=False).hexdigest()}"
+
+    if entity_type is EntityType.HASHTAG:
+        # Platform-independent on purpose: the same tag used on two platforms is the
+        # same tag, and that co-occurrence is exactly what makes hashtags a useful pivot.
+        return f"hashtag:{normalize_hashtag(value)}"
+
     if entity_type is EntityType.PERSON:
         return f"person:{n.normalize_text(value)}"
     raise CanonicalError(f"no canonical rule for {entity_type}")
 
 
+def normalize_hashtag(value: str) -> str:
+    """``#OpenSource`` / ``opensource`` / ``#open_source`` -> one comparable form."""
+    return n.normalize_text(value).lstrip("#").strip()
+
+
 def label_for(kind: str, value: str, attributes: dict[str, Any] | None = None) -> str:
     attributes = attributes or {}
     entity_type = entity_type_for(kind)
+    if entity_type is EntityType.HASHTAG:
+        return f"#{normalize_hashtag(value)}"
+    if entity_type is EntityType.POST:
+        caption = str(attributes.get("caption") or "").strip()
+        platform = attributes.get("platform") or "post"
+        return f"{platform}: {caption[:60]}…" if len(caption) > 60 else (
+            f"{platform}: {caption}" if caption else f"{platform} post"
+        )
+    if entity_type is EntityType.COMMENT:
+        text = str(attributes.get("text") or value).strip()
+        author = attributes.get("author") or "someone"
+        snippet = text[:50] + "…" if len(text) > 50 else text
+        return f"{author}: {snippet}"
     if entity_type is EntityType.SOCIAL_ACCOUNT:
         platform = attributes.get("platform") or "account"
         handle = attributes.get("username") or value
