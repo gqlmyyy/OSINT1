@@ -2,6 +2,18 @@ import { useState } from 'react';
 import { Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/auth';
 
+// These mirror RegisterRequest in backend/app/schemas/auth.py. They are stated here so
+// the form can reject bad input before a round trip; the server remains the authority
+// and its per-field errors are surfaced verbatim when it disagrees.
+export const USERNAME_MIN_LENGTH = 3;
+// The server's rule is `^[A-Za-z0-9._-]+$`. The hyphen is escaped here because browsers
+// compile the `pattern` attribute with the RegExp `v` flag, where a trailing `-` in a
+// character class is a syntax error — and an uncompilable pattern is silently ignored,
+// which would leave this field with no constraint at all.
+export const USERNAME_PATTERN = '[A-Za-z0-9._\\-]+';
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_DISTINCT = 5;
+
 export function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
@@ -59,7 +71,23 @@ export function Login() {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               autoComplete="username"
+              // Mirrors RegisterRequest.username on the server, so an invalid handle is
+              // caught here instead of coming back as a 422.
+              {...(mode === 'register'
+                ? {
+                    minLength: USERNAME_MIN_LENGTH,
+                    maxLength: 64,
+                    pattern: USERNAME_PATTERN,
+                    title: 'Letters, digits, dot, underscore or hyphen only.',
+                  }
+                : {})}
             />
+            {mode === 'register' && (
+              <p className="mt-1 text-2xs text-fg-dim">
+                At least {USERNAME_MIN_LENGTH} characters: letters, digits, dot,
+                underscore or hyphen.
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="password" className="mb-1 block text-2xs text-fg-dim">
@@ -69,13 +97,16 @@ export function Login() {
               id="password"
               type="password"
               required
-              minLength={mode === 'register' ? 12 : 1}
+              minLength={mode === 'register' ? PASSWORD_MIN_LENGTH : 1}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             />
             {mode === 'register' && (
-              <p className="mt-1 text-2xs text-fg-dim">At least 12 characters.</p>
+              <p className="mt-1 text-2xs text-fg-dim">
+                At least {PASSWORD_MIN_LENGTH} characters, using at least{' '}
+                {PASSWORD_MIN_DISTINCT} different ones.
+              </p>
             )}
           </div>
         </div>

@@ -269,3 +269,50 @@ async def test_ai_reports_disabled_by_default(auth_client) -> None:
     response = await auth_client.get(f"{BASE}/ai/status")
     assert response.status_code == 200
     assert response.json()["enabled"] is False
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_field"),
+    [
+        ({"email": "a@example.com", "username": "analyst", "password": "Password123"}, "password"),
+        ({"email": "a@example.com", "username": "analyst", "password": "aaaaaaaaaaaa"}, "password"),
+        ({"email": "a@example.com", "username": "ab", "password": PASSWORD}, "username"),
+        ({"email": "a@example.com", "username": "my user", "password": PASSWORD}, "username"),
+        ({"email": "admin@localhost", "username": "analyst", "password": PASSWORD}, "email"),
+        (
+            {"email": "a@example.com", "username": "analyst", "password": PASSWORD, "confirm": "x"},
+            "confirm",
+        ),
+    ],
+)
+async def test_register_rejection_names_the_broken_rule(
+    client, payload: dict[str, str], expected_field: str
+) -> None:
+    """The client renders `fields`; if this contract drops, users get an unactionable error.
+
+    This is the backend half of the fix for the 422 that could not be diagnosed from the
+    UI — the frontend's `messageFrom()` depends on every one of these keys being present.
+    """
+    response = await client.post(f"{BASE}/auth/register", json=payload)
+    assert response.status_code == 422, response.text
+
+    detail = response.json()["detail"]
+    assert detail["code"] == "validation_error"
+    assert detail["fields"], "a validation error must name the field that failed"
+
+    for field in detail["fields"]:
+        assert field["loc"], "each field error needs a loc the client can label"
+        assert field["msg"].strip(), "each field error needs a human-readable msg"
+
+    named = {str(field["loc"][-1]) for field in detail["fields"]}
+    assert expected_field in named, f"expected {expected_field} to be named, got {named}"
+
+
+async def test_valid_registration_is_accepted(client) -> None:
+    """The counterpart: the rules the form now advertises really do get through."""
+    response = await client.post(
+        f"{BASE}/auth/register",
+        json={"email": "ok@example.com", "username": "an.aly-st_1", "password": "MyStr0ngPass!2026"},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["username"] == "an.aly-st_1"

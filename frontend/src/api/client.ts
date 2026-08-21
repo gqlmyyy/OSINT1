@@ -44,19 +44,43 @@ export const tokens = {
   },
 };
 
-function messageFrom(status: number, detail: unknown): string {
+interface FieldError {
+  loc?: string[];
+  msg?: string;
+}
+
+/**
+ * Turn an error payload into something the user can act on.
+ *
+ * Ordering matters: a 422 carries BOTH a generic `message` ("request failed validation")
+ * and a `fields` list naming the rule that was broken. Reading `message` first made the
+ * field list unreachable, so every rejection looked identical and the user had no way to
+ * learn what to change. Most specific wins.
+ */
+export function messageFrom(status: number, detail: unknown): string {
   if (typeof detail === 'string') return detail;
   if (detail && typeof detail === 'object') {
     const record = detail as Record<string, unknown>;
-    if (typeof record.message === 'string') return record.message;
-    if (Array.isArray(record.fields)) {
-      return record.fields
-        .map((f) => {
-          const field = f as { loc?: string[]; msg?: string };
-          return `${field.loc?.slice(-1)[0] ?? 'field'}: ${field.msg ?? 'invalid'}`;
+
+    if (Array.isArray(record.fields) && record.fields.length > 0) {
+      const described = record.fields
+        .map((entry) => {
+          const field = entry as FieldError;
+          // `loc` is ["body", "password"]; the field name is the part worth showing.
+          const name = field.loc?.filter((part) => part !== 'body').slice(-1)[0] ?? 'field';
+          // "Value error, " is Pydantic's internal prefix — noise to whoever is reading.
+          const reason = (field.msg ?? 'invalid').replace(/^Value error,\s*/i, '');
+          // Custom validators already name the field ("password is not varied enough"),
+          // so prefixing it again would read as a stutter.
+          return reason.toLowerCase().startsWith(name.toLowerCase())
+            ? reason
+            : `${name}: ${reason}`;
         })
-        .join('; ');
+        .filter(Boolean);
+      if (described.length > 0) return described.join('; ');
     }
+
+    if (typeof record.message === 'string') return record.message;
   }
   return `request failed (${status})`;
 }
