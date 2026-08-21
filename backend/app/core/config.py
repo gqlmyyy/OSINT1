@@ -9,10 +9,10 @@ from __future__ import annotations
 import secrets
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 # Not a credential: the sentinel value the production validator refuses to boot with.
@@ -41,12 +41,19 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 60
     refresh_token_ttl_days: int = 14
     allow_registration: bool = True
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # NoDecode keeps pydantic-settings from running json.loads() on the raw value before
+    # our validator sees it. Without it a comma-separated CORS_ORIGINS -- the format
+    # .env.example and docker-compose.yml both use -- raises SettingsError at startup.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:5173"]
+    )
     api_rate_limit_per_minute: int = 240
 
     # -- egress / SSRF guard ---------------------------------------------------
     allow_private_networks: bool = False
-    allowed_egress_ports: list[int] = Field(default_factory=lambda: [80, 443])
+    allowed_egress_ports: Annotated[list[int], NoDecode] = Field(
+        default_factory=lambda: [80, 443]
+    )
     http_timeout_seconds: float = 15.0
     http_max_redirects: int = 5
     http_max_bytes: int = 4 * 1024 * 1024

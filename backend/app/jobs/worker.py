@@ -56,22 +56,41 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await dispose_engine()
 
 
-class _WorkerMeta(type):
-    """``redis_settings`` is read off the class by arq, so resolve it lazily here:
-    importing this module must not require Redis to be configured."""
+def redis_settings_from_env() -> RedisSettings:
+    """Build arq's Redis configuration from ``REDIS_URL``.
 
-    @property
-    def redis_settings(cls) -> RedisSettings:
-        url = get_settings().redis_url
-        if not url:
-            raise RuntimeError("REDIS_URL must be set to run the ARQ worker")
-        return RedisSettings.from_dsn(url)
+    Failing loudly is deliberate: a worker with no broker cannot do anything, and the
+    alternative — arq's default ``RedisSettings()`` — silently points at localhost.
+    """
+    url = get_settings().redis_url
+    if not url:
+        raise RuntimeError(
+            "REDIS_URL must be set to run the ARQ worker. The API can fall back to the "
+            "in-process queue; the worker has no such fallback."
+        )
+    return RedisSettings.from_dsn(url)
 
 
-class WorkerSettings(metaclass=_WorkerMeta):
+class WorkerSettings:
+    """Settings arq reads to construct its Worker.
+
+    Every value here must be a plain entry in this class's own ``__dict__``:
+    ``arq.worker.get_kwargs()`` does ``settings_cls.__dict__`` and keeps only the keys
+    that match ``Worker``'s signature. Anything resolved dynamically — a metaclass
+    property, ``__getattr__``, a descriptor on a base class — answers correctly under
+    normal attribute access but is *invisible* to that lookup, so arq drops it and
+    constructs ``Worker()`` with the default ``RedisSettings()``: localhost:6379.
+    That failure is silent, which is what made it hard to see.
+    """
+
+    redis_settings: ClassVar[RedisSettings] = redis_settings_from_env()
     functions: ClassVar[list[Any]] = [run_scan]
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10
     job_timeout = 60 * 30
     keep_result = 3600
+    # arq records liveness into Redis on this interval and `arq ... --check` reads it
+    # back. The default is an hour, which is far too coarse for a container probe: a
+    # wedged worker would keep reporting healthy long after it stopped working.
+    health_check_interval = 30

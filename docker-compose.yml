@@ -74,9 +74,25 @@ services:
     command: ['worker']
     environment: *backend-env
     depends_on:
-      backend:
+      # The worker's own dependencies, stated directly rather than inherited through
+      # backend: it needs the broker to take jobs from and the schema to write to.
+      redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy   # the API owns migrations; wait for them to apply
     restart: unless-stopped
+    # This service shares the backend image and would otherwise inherit its HTTP probe,
+    # which a worker can never satisfy: it serves no HTTP. arq's own check reads the
+    # liveness record the worker writes into Redis, so it proves both that the process
+    # is alive and that it can reach the broker.
+    healthcheck:
+      test: ['CMD', 'arq', 'app.jobs.worker.WorkerSettings', '--check']
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     # Providers reach the public internet from here; the SSRF guard still applies.
 
   frontend:
