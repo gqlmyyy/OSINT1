@@ -1,0 +1,27 @@
+# One lint configuration for the whole repository: backend and plugins are held to the
+# same standard, since a plugin is production code that runs in the backend's process.
+line-length = 100
+target-version = "py311"
+extend-exclude = ["backend/alembic/versions", "frontend"]
+src = ["backend"]
+
+[lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "S", "RUF"]
+ignore = [
+    "S101",    # asserts are used deliberately as internal invariants
+    "B008",    # FastAPI's Depends() in defaults is the framework's idiom
+    "N818",    # exception names follow the domain, not the Error suffix convention
+    "RUF001", "RUF002", "RUF003",  # documentation uses arrows and typographic dashes
+    "SIM108",  # an explicit if/else is often clearer than a ternary here
+]
+
+[lint.per-file-ignores]
+# Test code may use asserts, long fixture literals, private access, and stubs that
+# mirror a production signature (ASYNC109) without the trade-off applying.
+"**/tests/**" = ["S", "E501", "ASYNC109", "SLF001"]
+"**/conftest.py" = ["S", "E501", "SLF001"]
+# Report markup is a template: wrapping it would hurt readability, not help it.
+"backend/app/services/templates.py" = ["E501"]
+
+[lint.isort]
+known-first-party = ["app"]

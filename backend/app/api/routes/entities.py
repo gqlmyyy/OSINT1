@@ -152,7 +152,9 @@ async def expand_entity(
     from app.schemas.investigation import TargetIn
 
     service = InvestigationService(session)
-    await service.add_targets(entity.investigation_id, [TargetIn(value=target_value, type=target_type)])
+    await service.add_targets(
+        entity.investigation_id, [TargetIn(value=target_value, type=target_type)]
+    )
     await session.commit()
 
     task_id = await get_queue().enqueue_scan(

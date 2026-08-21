@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_sessionmaker
 from app.core.enums import Role
-from app.models import Investigation, User
 from app.jobs.events import channel_for, get_event_bus
+from app.models import Investigation, User
 from app.security.auth import TokenError, decode_token
 from app.security.rbac import has_role
 

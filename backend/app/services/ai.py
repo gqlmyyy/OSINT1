@@ -122,7 +122,11 @@ class AIService:
         return {
             "summary": str(parsed.get("summary", ""))[:4000],
             "claims": [
-                {"statement": c.statement, "evidence_ids": c.evidence_ids, "confidence": c.confidence}
+                {
+                    "statement": c.statement,
+                    "evidence_ids": c.evidence_ids,
+                    "confidence": c.confidence,
+                }
                 for c in claims
             ],
             "grounded": bool(claims),
@@ -140,7 +144,11 @@ class AIService:
         deterministic = {
             "summary": candidate.explanation,
             "claims": [
-                {"statement": reason.lstrip("+- ").strip(), "evidence_ids": [], "confidence": candidate.score}
+                {
+                    "statement": reason.lstrip("+- ").strip(),
+                    "evidence_ids": [],
+                    "confidence": candidate.score,
+                }
                 for reason in candidate.reasons
             ],
             "grounded": True,

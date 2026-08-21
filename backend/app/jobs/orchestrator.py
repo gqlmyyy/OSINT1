@@ -10,7 +10,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -156,7 +156,9 @@ class Orchestrator:
                 queue = [t for t in derived if t.depth <= budget.max_depth]
                 if queue:
                     await emitter.emit(
-                        "stage_changed", stage=InvestigationStage.GRAPH_EXPANSION, depth=queue[0].depth
+                        "stage_changed",
+                        stage=InvestigationStage.GRAPH_EXPANSION,
+                        depth=queue[0].depth,
                     )
 
         # -- correlation ------------------------------------------------------
@@ -192,7 +194,7 @@ class Orchestrator:
         emitter: InvestigationEmitter,
     ) -> _JobOutcome:
         outcome = _JobOutcome(provider=entry.name)
-        started = datetime.now(tz=timezone.utc)
+        started = datetime.now(tz=UTC)
 
         async with self.sessionmaker() as session:
             job = Job(
@@ -217,8 +219,9 @@ class Orchestrator:
         result = await self.runner.run(entry, target)
 
         async with self.sessionmaker() as session:
-            job = await session.get(Job, job_id)
-            assert job is not None
+            job_row = await session.get(Job, job_id)
+            if job_row is None:  # the investigation was deleted mid-scan
+                return outcome
             run_status = (
                 RunStatus.ERROR
                 if result.error
@@ -228,8 +231,8 @@ class Orchestrator:
                 run_status = RunStatus.TIMEOUT
 
             if result.error:
-                job.status = JobStatus.FAILED
-                job.error = result.error[:2000]
+                job_row.status = JobStatus.FAILED
+                job_row.error = result.error[:2000]
                 outcome.error = result.error
             else:
                 extractor = EntityExtractor(session, request.investigation_id)
@@ -243,8 +246,8 @@ class Orchestrator:
                     )
                     for t in extraction.derived_targets
                 ]
-                job.status = JobStatus.SUCCEEDED
-                job.stats = {
+                job_row.status = JobStatus.SUCCEEDED
+                job_row.stats = {
                     "observations": outcome.observations,
                     "entities": outcome.entities_created,
                     "relationships": outcome.relationships_created,
@@ -253,7 +256,7 @@ class Orchestrator:
                 }
                 await self._emit_graph_delta(emitter, extraction)
 
-            job.finished_at = utcnow()
+            job_row.finished_at = utcnow()
             session.add(
                 ProviderRun(
                     id=uuid.uuid4(),

@@ -153,7 +153,11 @@ class DeduplicationService:
                 )
             ).scalars()
         )
-        seen = {e.dedupe_key for e in edges if duplicate.id not in (e.source_entity_id, e.target_entity_id)}
+        seen = {
+            e.dedupe_key
+            for e in edges
+            if duplicate.id not in (e.source_entity_id, e.target_entity_id)
+        }
         for edge in edges:
             if duplicate.id not in (edge.source_entity_id, edge.target_entity_id):
                 continue

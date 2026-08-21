@@ -14,7 +14,7 @@ from app.providers.cache import cache_key, get_cache
 from app.providers.ratelimit import provider_limiters
 from app.providers.registry import RegisteredProvider
 from app.providers.types import Observation, ProviderResult, Target
-from app.security.ssrf import SSRFBlocked, SafeAsyncClient
+from app.security.ssrf import SafeAsyncClient, SSRFBlocked
 
 logger = logging.getLogger(__name__)
 

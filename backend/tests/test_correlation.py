@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.enums import EntityType, MatchBand
 from app.correlation.engine import BAND_LABELS, CorrelationEngine, band_for
 from app.correlation.signals import EntityView
@@ -144,6 +142,7 @@ async def test_correlation_is_idempotent(session, investigation) -> None:
     assert len(first) == len(second)
 
     from sqlalchemy import func, select
+
     from app.models import IdentityCandidate
 
     count = int(

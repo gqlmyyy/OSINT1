@@ -9,7 +9,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.evidence.normalizer import sha256_hex
-from app.models import Evidence, Observation as ObservationRow
+from app.models import Evidence
+from app.models import Observation as ObservationRow
 from app.providers.types import Observation
 
 
@@ -47,7 +48,10 @@ class EvidenceStore:
         self.session.add(row)
         await self.session.flush()
 
-        payload: dict[str, Any] = observation.raw or {"value": observation.value, **observation.data}
+        payload: dict[str, Any] = observation.raw or {
+            "value": observation.value,
+            **observation.data,
+        }
         digest = sha256_hex(json.dumps(payload, sort_keys=True, default=str))
         self.session.add(
             Evidence(

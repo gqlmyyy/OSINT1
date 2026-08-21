@@ -10,8 +10,8 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin
 
-from app.core.enums import Assertion, MatchStrength, ProviderType, TargetType
-from app.evidence.normalizer import EMAIL_RE, normalize_domain, NormalizationError
+from app.core.enums import MatchStrength, ProviderType, TargetType
+from app.evidence.normalizer import EMAIL_RE, NormalizationError, normalize_domain
 from app.providers.base import OSINTProvider, ProviderContext
 from app.providers.types import (
     EdgeHint,

@@ -135,7 +135,7 @@ class UsernameEnumProvider(OSINTProvider):
             },
             excerpt=(
                 f"{site['name']} returned HTTP {response.status_code} for this handle"
-                + (f" and the page contains the expected marker." if marker else ".")
+                + (" and the page contains the expected marker." if marker else ".")
             ),
         )
 

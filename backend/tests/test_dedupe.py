@@ -68,6 +68,7 @@ async def test_merge_moves_evidence_edges_and_identifiers(session, investigation
     assert edges[0].source_entity_id == survivor.id
 
     from sqlalchemy import select
+
     from app.models import Identifier
 
     kinds = {

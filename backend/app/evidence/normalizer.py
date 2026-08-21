@@ -6,6 +6,7 @@ same identifier typed three different ways lands on one node.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import ipaddress
 import re
@@ -139,15 +140,18 @@ def normalize_url(value: str) -> str:
     host = (parts.hostname or "").lower()
     if not host:
         raise NormalizationError(f"URL has no host: {value!r}")
-    try:
+    with contextlib.suppress(idna.IDNAError):
         host = idna.encode(host, uts46=True).decode("ascii")
-    except idna.IDNAError:
-        pass
     netloc = host
-    if parts.port and not ((parts.scheme == "http" and parts.port == 80) or (parts.scheme == "https" and parts.port == 443)):
+    default_port = 80 if parts.scheme == "http" else 443
+    if parts.port and parts.port != default_port:
         netloc = f"{host}:{parts.port}"
     query = urlencode(
-        [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k.lower() not in TRACKING_PARAMS]
+        [
+            (key, value)
+            for key, value in parse_qsl(parts.query, keep_blank_values=True)
+            if key.lower() not in TRACKING_PARAMS
+        ]
     )
     path = parts.path or "/"
     if len(path) > 1 and path.endswith("/"):

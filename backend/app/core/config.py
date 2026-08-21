@@ -15,7 +15,8 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SECRET = "change-me-in-production-change-me-in-production"
+# Not a credential: the sentinel value the production validator refuses to boot with.
+DEFAULT_SECRET = "change-me-in-production-change-me-in-production"  # noqa: S105
 
 
 class Settings(BaseSettings):

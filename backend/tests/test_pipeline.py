@@ -41,6 +41,7 @@ async def test_demo_dedupes_the_same_account_seen_by_two_providers(session, user
     await session.commit()
 
     from sqlalchemy import select
+
     from app.models import Entity
 
     entities = list(
@@ -62,6 +63,7 @@ async def test_demo_produces_explained_identity_candidates(session, user) -> Non
     await session.commit()
 
     from sqlalchemy import select
+
     from app.models import IdentityCandidate
 
     candidates = list(
@@ -131,6 +133,7 @@ async def test_analytics_find_paths_and_structure(session, user) -> None:
     analytics = GraphAnalytics(session, investigation.id)
 
     from sqlalchemy import select
+
     from app.models import Entity
 
     entities = {
@@ -229,6 +232,7 @@ async def test_investigation_delete_removes_all_children(session, user) -> None:
     investigation_id = investigation.id
 
     from sqlalchemy import func, select
+
     from app.models import Entity, Relationship
 
     async def count(model) -> int:

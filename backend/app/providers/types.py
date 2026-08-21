@@ -6,7 +6,7 @@ a provider must never need to know the database schema.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -65,7 +65,7 @@ class ProviderHealth(BaseModel):
     name: str
     state: HealthState
     detail: str = ""
-    checked_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    checked_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
     @classmethod
     def ok(cls, name: str, detail: str = "") -> ProviderHealth:
@@ -105,7 +105,7 @@ class Observation(BaseModel):
     value: str
     url: str | None = None
     label: str | None = None
-    observed_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     match: MatchStrength = MatchStrength.PATTERN_MATCH
     assertion: Assertion = Assertion.OBSERVED
     confidence: float | None = None

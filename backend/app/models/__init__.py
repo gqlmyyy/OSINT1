@@ -3,7 +3,7 @@
 from app.models.audit import AuditLog
 from app.models.base import Timestamped, UUIDPk, utcnow
 from app.models.evidence import Evidence, Observation
-from app.models.graph import Entity, IdentityCandidate, Identifier, Relationship
+from app.models.graph import Entity, Identifier, IdentityCandidate, Relationship
 from app.models.investigation import Investigation, Note, Tag, Target
 from app.models.job import Job, ProviderRun
 from app.models.source import Source
@@ -13,8 +13,8 @@ __all__ = [
     "AuditLog",
     "Entity",
     "Evidence",
-    "IdentityCandidate",
     "Identifier",
+    "IdentityCandidate",
     "Investigation",
     "Job",
     "Note",
@@ -25,7 +25,7 @@ __all__ = [
     "Tag",
     "Target",
     "Timestamped",
-    "User",
     "UUIDPk",
+    "User",
     "utcnow",
 ]

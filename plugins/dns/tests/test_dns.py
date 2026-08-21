@@ -22,7 +22,7 @@ ANSWERS = {
 def stub_resolver(monkeypatch, load_provider):
     provider = load_provider("dns")
 
-    async def fake_query(_resolver, domain, rtype):  # noqa: ANN001
+    async def fake_query(_resolver, domain, rtype):
         return ANSWERS.get(rtype, [])
 
     monkeypatch.setattr(type(provider), "_query", staticmethod(fake_query))
@@ -48,10 +48,10 @@ async def test_maps_records_to_entities_and_edges(stub_resolver, make_ctx) -> No
 async def test_nxdomain_is_empty_not_an_error(monkeypatch, load_provider, make_ctx) -> None:
     provider = load_provider("dns")
 
-    async def raising(_resolver, domain, rtype):  # noqa: ANN001
+    async def raising(_resolver, domain, rtype):
         raise dns.resolver.NXDOMAIN()
 
-    async def guarded(_resolver, domain, rtype):  # noqa: ANN001
+    async def guarded(_resolver, domain, rtype):
         try:
             return await raising(_resolver, domain, rtype)
         except dns.resolver.NXDOMAIN:

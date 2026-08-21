@@ -8,7 +8,7 @@ observed fact from a correlation at a glance.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -51,7 +51,9 @@ class ReportBuilder:
         if investigation is None:
             raise LookupError("investigation not found")
 
-        targets = await self._scalars(select(Target).where(Target.investigation_id == self.investigation_id))
+        targets = await self._scalars(
+            select(Target).where(Target.investigation_id == self.investigation_id)
+        )
         entities = [
             e
             for e in await self._scalars(
@@ -93,7 +95,7 @@ class ReportBuilder:
             by_type.setdefault(entity.type, []).append(entity)
 
         return {
-            "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            "generated_at": datetime.now(tz=UTC).isoformat(),
             "disclaimer": DISCLAIMER,
             "investigation": {
                 "id": str(investigation.id),

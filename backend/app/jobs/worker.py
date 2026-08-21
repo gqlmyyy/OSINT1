@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
+from typing import Any, ClassVar
 
 from arq.connections import RedisSettings
 
@@ -47,7 +47,9 @@ async def run_scan(
 async def startup(_ctx: dict[str, Any]) -> None:
     configure_logging()
     registry = get_registry()
-    logger.info("worker started with %d provider(s): %s", len(registry), ", ".join(registry.names()))
+    logger.info(
+        "worker started with %d provider(s): %s", len(registry), ", ".join(registry.names())
+    )
 
 
 async def shutdown(_ctx: dict[str, Any]) -> None:
@@ -67,7 +69,7 @@ class _WorkerMeta(type):
 
 
 class WorkerSettings(metaclass=_WorkerMeta):
-    functions = [run_scan]
+    functions: ClassVar[list[Any]] = [run_scan]
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10

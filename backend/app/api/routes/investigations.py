@@ -358,8 +358,8 @@ async def list_observations(
 async def list_matches(
     session: SessionDep, investigation: InvestigationDep
 ) -> list[dict[str, Any]]:
-    from app.correlation.engine import BAND_LABELS
     from app.core.enums import MatchBand
+    from app.correlation.engine import BAND_LABELS
 
     rows = list(
         (

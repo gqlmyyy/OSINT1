@@ -48,8 +48,12 @@ class TokenBucket:
             return deficit / self.rate if self.rate else 60.0
 
     async def acquire(self, key: str, cost: float = 1.0) -> None:
-        """Block until a token is available."""
-        while not await self.try_acquire(key, cost):
+        """Block until a token is available.
+
+        Polling is correct here: refill is time-based, so there is no event to wait on --
+        the sleep is sized from the bucket's own deficit rather than a fixed interval.
+        """
+        while not await self.try_acquire(key, cost):  # noqa: ASYNC110
             await asyncio.sleep(min(await self.retry_after(key, cost), 5.0) or 0.05)
 
 

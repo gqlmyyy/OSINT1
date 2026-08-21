@@ -61,7 +61,11 @@ async def register(payload: RegisterRequest, session: SessionDep, request: Reque
     session.add(user)
     await session.flush()
     await audit.record(
-        session, action="auth.register", actor_id=user.id, target=user.username, ip=client_ip(request)
+        session,
+        action="auth.register",
+        actor_id=user.id,
+        target=user.username,
+        ip=client_ip(request),
     )
     return user
 
@@ -84,7 +88,12 @@ async def login(payload: LoginRequest, session: SessionDep, request: Request) ->
     ).scalar_one_or_none()
 
     # Uniform failure: never reveal whether the account exists.
-    if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
+    authenticated = (
+        user is not None
+        and user.is_active
+        and verify_password(payload.password, user.password_hash)
+    )
+    if user is None or not authenticated:
         await audit.record(
             session, action="auth.login_failed", target=identifier, ip=client_ip(request)
         )
@@ -96,7 +105,11 @@ async def login(payload: LoginRequest, session: SessionDep, request: Request) ->
         user.password_hash = hash_password(payload.password)
 
     await audit.record(
-        session, action="auth.login", actor_id=user.id, target=user.username, ip=client_ip(request)
+        session,
+        action="auth.login",
+        actor_id=user.id,
+        target=user.username,
+        ip=client_ip(request),
     )
     return _tokens(user)
 

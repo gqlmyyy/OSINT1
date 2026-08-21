@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -128,7 +128,9 @@ class GraphProjection:
             )
             visible_ids = {e.id for e in visible}
             edges = [
-                r for r in edges if r.source_entity_id in visible_ids and r.target_entity_id in visible_ids
+                r
+                for r in edges
+                if r.source_entity_id in visible_ids and r.target_entity_id in visible_ids
             ]
         else:
             if filters.expand:
@@ -241,9 +243,8 @@ def _cluster_summary(entities: list[Entity]) -> dict[str, int]:
 
 
 def _aware(value: datetime) -> datetime:
-    from datetime import timezone
 
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def _iso(value: datetime | None) -> str | None:

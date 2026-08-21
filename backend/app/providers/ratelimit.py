@@ -19,4 +19,4 @@ def provider_limiters(name: str, rpm: int) -> tuple[TokenBucket, ConcurrencyGuar
 def reset_limiters() -> None:
     _buckets.clear()
     _guard.limits.clear()
-    _guard._semaphores.clear()  # noqa: SLF001
+    _guard._semaphores.clear()

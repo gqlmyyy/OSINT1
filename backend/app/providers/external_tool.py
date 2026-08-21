@@ -65,7 +65,7 @@ def validate_argument(value: str) -> str:
     return value
 
 
-async def run_tool(binary: str, args: list[str], timeout: float) -> ToolResult:
+async def run_tool(binary: str, args: list[str], timeout: float) -> ToolResult:  # noqa: ASYNC109
     """Run ``binary`` with ``args`` (argv list, no shell) inside a temp directory."""
     resolved = find_binary(binary)
     if resolved is None:

@@ -134,20 +134,19 @@ def resolve_and_validate(url: str, settings: Settings | None = None) -> Resolved
     if literal is not None:
         if not settings.allow_private_networks and not _is_public_ip(literal):
             raise SSRFBlocked(f"address not allowed: {host}")
-        family = socket.AF_INET6 if literal.version == 6 else socket.AF_INET
-        return ResolvedTarget(host=host, ip=str(literal), port=port, family=family)
+        literal_family = socket.AF_INET6 if literal.version == 6 else socket.AF_INET
+        return ResolvedTarget(host=host, ip=str(literal), port=port, family=literal_family)
 
     candidates = _resolve(host, port)
-    if settings.allow_private_networks:
-        family, addr = candidates[0]
-        return ResolvedTarget(host=host, ip=addr, port=port, family=family)
-
-    # Every answer must be public: one private answer means the name is untrustworthy.
-    for family, addr in candidates:
-        if not _is_public_ip(ipaddress.ip_address(addr)):
-            raise SSRFBlocked(f"host {host} resolves to a non-public address ({addr})")
-    family, addr = candidates[0]
-    return ResolvedTarget(host=host, ip=addr, port=port, family=family)
+    if not settings.allow_private_networks:
+        # Every answer must be public: one private answer means the name is untrustworthy.
+        for _family, address in candidates:
+            if not _is_public_ip(ipaddress.ip_address(address)):
+                raise SSRFBlocked(f"host {host} resolves to a non-public address ({address})")
+    resolved_family, resolved_address = candidates[0]
+    return ResolvedTarget(
+        host=host, ip=resolved_address, port=port, family=socket.AddressFamily(resolved_family)
+    )
 
 
 class SafeAsyncClient:
@@ -248,7 +247,7 @@ class SafeAsyncClient:
                 raise ResponseTooLarge(f"response exceeded {self.max_bytes} bytes")
             chunks.append(chunk)
         # Re-seat the fully-read body so callers can use .text/.json() normally.
-        response._content = b"".join(chunks)  # noqa: SLF001
+        response._content = b"".join(chunks)
         response.is_stream_consumed = True
 
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:

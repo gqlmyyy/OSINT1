@@ -30,7 +30,7 @@ async def test_ungrounded_claims_are_dropped(session, user, monkeypatch) -> None
     monkeypatch.setattr(service.settings, "ai_enabled", True)
     monkeypatch.setattr(service.settings, "llm_provider", "ollama")
 
-    context, valid_ids = await service._build_context(investigation.id, 60)
+    _context, valid_ids = await service._build_context(investigation.id, 60)
     real_id = str(next(iter(valid_ids)))
 
     async def fake_complete(_payload: str) -> str:

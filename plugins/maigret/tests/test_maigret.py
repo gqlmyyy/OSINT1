@@ -41,7 +41,7 @@ async def test_claimed_profiles_become_observations(load_provider, make_ctx, mon
     provider = load_provider("maigret")
     module = type(provider).__module__
 
-    async def fake_run(binary, args, timeout):  # noqa: ANN001
+    async def fake_run(binary, args, timeout):
         assert "example_user" in args, "the handle must be passed as its own argv element"
         assert all(not a.startswith("&&") for a in args)
         return ToolResult(stdout="", stderr="", returncode=0, files=[REPORT])
@@ -61,7 +61,7 @@ async def test_missing_tool_returns_empty(load_provider, make_ctx, monkeypatch) 
     provider = load_provider("maigret")
     module = type(provider).__module__
 
-    async def missing(binary, args, timeout):  # noqa: ANN001
+    async def missing(binary, args, timeout):
         raise ToolUnavailable("maigret is not installed on this host")
 
     monkeypatch.setattr(f"{module}.run_tool", missing)

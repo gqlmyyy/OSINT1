@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
-import pytest
-
 from app.core.enums import InvestigationStatus, JobStatus, ProviderType, RunStatus, TargetType
 from app.jobs.budget import Budget
 from app.jobs.events import MemoryEventBus, set_event_bus
@@ -135,6 +131,7 @@ async def test_recursive_discovery_walks_the_chain(session, investigation) -> No
     assert depths >= {0, 1}, "discovery must follow derived identifiers to the next depth"
 
     from sqlalchemy import select
+
     from app.models import Entity
 
     labels = {
@@ -176,6 +173,7 @@ async def test_provider_failure_is_isolated_and_recorded(session, investigation)
     assert report.entities_created > 0, "one broken provider must not lose the other's results"
 
     from sqlalchemy import select
+
     from app.models import Job, ProviderRun
 
     jobs = {

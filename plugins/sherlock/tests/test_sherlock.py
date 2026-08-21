@@ -18,7 +18,7 @@ async def test_parses_found_lines_only(load_provider, make_ctx, monkeypatch) -> 
     provider = load_provider("sherlock")
     module = type(provider).__module__
 
-    async def fake_run(binary, args, timeout):  # noqa: ANN001
+    async def fake_run(binary, args, timeout):
         return ToolResult(stdout=STDOUT, stderr="", returncode=0)
 
     monkeypatch.setattr(f"{module}.run_tool", fake_run)
@@ -39,7 +39,7 @@ async def test_absent_binary_yields_nothing(load_provider, make_ctx, monkeypatch
     provider = load_provider("sherlock")
     module = type(provider).__module__
 
-    async def missing(binary, args, timeout):  # noqa: ANN001
+    async def missing(binary, args, timeout):
         raise ToolUnavailable("sherlock is not installed on this host")
 
     monkeypatch.setattr(f"{module}.run_tool", missing)

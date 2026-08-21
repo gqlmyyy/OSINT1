@@ -19,7 +19,7 @@ from app.providers.types import (
     ProviderRateLimit,
     Target,
 )
-from app.security.ssrf import SSRFBlocked, SafeAsyncClient
+from app.security.ssrf import SafeAsyncClient, SSRFBlocked
 
 TARGET = Target(type=TargetType.USERNAME, value="ex", normalized="ex", depth=0)
 

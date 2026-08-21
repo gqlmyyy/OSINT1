@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import jwt
@@ -51,7 +51,7 @@ class TokenClaims:
 
 def create_token(user_id: uuid.UUID, role: str, kind: TokenKind = "access") -> str:
     settings = get_settings()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     ttl = (
         timedelta(minutes=settings.access_token_ttl_minutes)
         if kind == "access"
@@ -93,6 +93,6 @@ def decode_token(token: str, expected_kind: TokenKind | None = None) -> TokenCla
         subject=subject,
         role=str(payload.get("role", "viewer")),
         kind=kind,  # type: ignore[arg-type]
-        expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+        expires_at=datetime.fromtimestamp(payload["exp"], tz=UTC),
         jti=str(payload.get("jti", "")),
     )

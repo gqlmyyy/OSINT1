@@ -17,7 +17,7 @@ async def test_parses_used_platforms_as_unverified(load_provider, make_ctx, monk
     provider = load_provider("holehe")
     module = type(provider).__module__
 
-    async def fake_run(binary, args, timeout):  # noqa: ANN001
+    async def fake_run(binary, args, timeout):
         assert "--only-used" in args
         return ToolResult(stdout=STDOUT, stderr="", returncode=0)
 

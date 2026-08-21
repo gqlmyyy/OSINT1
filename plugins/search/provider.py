@@ -7,6 +7,7 @@ forbid it, and we do not bundle a default endpoint someone else pays for.
 
 from __future__ import annotations
 
+import contextlib
 from urllib.parse import quote
 
 from app.core.enums import Assertion, MatchStrength, ProviderType, TargetType
@@ -79,7 +80,7 @@ class SearchEngineProvider(OSINTProvider):
             if not url.startswith(("http://", "https://")):
                 continue
             edges = []
-            try:
+            with contextlib.suppress(NormalizationError):
                 edges.append(
                     EdgeHint(
                         type="REFERENCES",
@@ -88,8 +89,6 @@ class SearchEngineProvider(OSINTProvider):
                         why="Search result hosted on this site.",
                     )
                 )
-            except NormalizationError:
-                pass
             observations.append(
                 self.observation(
                     kind="url",

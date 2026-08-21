@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -83,9 +83,11 @@ class GraphStore:
             if source and source not in existing.sources:
                 existing.sources = [*existing.sources, source]
             # Independent corroboration raises confidence without ever reaching certainty.
+            # Independent sightings compound (noisy-OR) but are floored at the best
+            # single observation and capped below certainty.
+            combined = 1 - (1 - existing.confidence) * (1 - confidence)
             existing.confidence = round(
-                min(0.99, max(existing.confidence, confidence, 1 - (1 - existing.confidence) * (1 - confidence))),
-                4,
+                min(0.99, max(existing.confidence, confidence, combined)), 4
             )
             if seen_at < _aware(existing.first_seen):
                 existing.first_seen = seen_at
@@ -207,6 +209,5 @@ class GraphStore:
 
 
 def _aware(value: datetime) -> datetime:
-    from datetime import timezone
 
-    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return value if value.tzinfo else value.replace(tzinfo=UTC)

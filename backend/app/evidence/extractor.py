@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Assertion, EntityType, RelationshipType, TargetType
+from app.core.enums import EntityType, RelationshipType, TargetType
 from app.evidence import normalizer as norm
 from app.evidence.canonical import CanonicalError, canonical_key, entity_type_for, label_for
 from app.evidence.store import EvidenceStore
@@ -104,9 +104,14 @@ class EntityExtractor:
         upsert = await self.graph.upsert_entity(
             entity_type=entity_type,
             canonical_key=key,
-            label=observation.label or label_for(observation.kind, observation.value, observation.data),
+            label=observation.label
+            or label_for(observation.kind, observation.value, observation.data),
             confidence=float(observation.confidence or 0.5),
-            attributes={**observation.data, "url": observation.url} if observation.url else dict(observation.data),
+            attributes=(
+                {**observation.data, "url": observation.url}
+                if observation.url
+                else dict(observation.data)
+            ),
             source=observation.provider,
             observed_at=observation.observed_at,
             depth=origin.depth + 1,
@@ -222,7 +227,12 @@ class EntityExtractor:
         except norm.NormalizationError:
             await self.graph.add_identifier(entity, "text", value, norm.normalize_text(value))
 
-        for extra_kind, extra_key in (("email", "email"), ("avatar", "avatar_hash"), ("domain", "website_domain")):
+        extra_identifiers = (
+            ("email", "email"),
+            ("avatar", "avatar_hash"),
+            ("domain", "website_domain"),
+        )
+        for extra_kind, extra_key in extra_identifiers:
             raw = attributes.get(extra_key)
             if isinstance(raw, str) and raw:
                 await self.graph.add_identifier(entity, extra_kind, raw, norm.normalize_text(raw))

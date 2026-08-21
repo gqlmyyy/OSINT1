@@ -111,4 +111,4 @@ class OSINTProvider(ABC):
         return f"<{type(self).__name__} name={self.name}>"
 
 
-__all__ = ["OSINTProvider", "ProviderContext", "SAFE_TARGET_RE"]
+__all__ = ["SAFE_TARGET_RE", "OSINTProvider", "ProviderContext"]

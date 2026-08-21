@@ -113,6 +113,7 @@ def _reset_shared_state() -> None:
 async def client(engine: object) -> AsyncIterator[object]:
     """HTTP client bound to the app, with lifespan skipped (fixtures own the schema)."""
     import httpx
+
     from app.main import create_app
 
     app = create_app(with_lifespan=False)

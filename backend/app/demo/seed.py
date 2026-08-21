@@ -8,11 +8,17 @@ real person, and no request leaves the process.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Assertion, InvestigationStage, InvestigationStatus, MatchStrength
+from app.core.enums import (
+    Assertion,
+    InvestigationStage,
+    InvestigationStatus,
+    MatchStrength,
+    TargetType,
+)
 from app.correlation.engine import CorrelationEngine
 from app.evidence.extractor import EntityExtractor
 from app.models import Investigation
@@ -24,7 +30,7 @@ DEMO_USERNAME = "example_user"
 DEMO_EMAIL = "example.user@example.com"
 DEMO_DOMAIN = "example.com"
 AVATAR_HASH = "7f3c2b19d84a6e50f21c9b7e4a0d8c6355ae91b2c7d40f8e6a1b93c5d2074e8f"
-BASE = datetime(2025, 3, 11, 9, 30, tzinfo=timezone.utc)
+BASE = datetime(2025, 3, 11, 9, 30, tzinfo=UTC)
 
 
 def _obs(
@@ -81,7 +87,10 @@ def demo_observations() -> list[Observation]:
                 "public_repos": 12,
                 "followers": 87,
             },
-            excerpt="Backend engineer working on graph databases and data pipelines. blog: example.com",
+            excerpt=(
+                "Backend engineer working on graph databases and data pipelines. "
+                "blog: example.com"
+            ),
             edges=[
                 EdgeHint(
                     type="LINKS_TO",
@@ -137,7 +146,7 @@ def demo_observations() -> list[Observation]:
                 "bio": "Backend engineer working on graph databases and data pipelines.",
                 "avatar_hash": AVATAR_HASH,
             },
-            excerpt="Profile page returned HTTP 200 with a matching handle.",
+            excerpt="Profile page resolved and the handle matches exactly.",
         ),
         _obs(
             "username_enum",
@@ -146,7 +155,11 @@ def demo_observations() -> list[Observation]:
             days=190,
             url="https://news.ycombinator.com/user?id=example.user",
             label="HackerNews/example.user",
-            data={"platform": "HackerNews", "username": "example.user", "display_name": "Example U."},
+            data={
+                "platform": "HackerNews",
+                "username": "example.user",
+                "display_name": "Example U.",
+            },
             match=MatchStrength.PATTERN_MATCH,
             assertion=Assertion.UNVERIFIED,
             excerpt="Handle is a variant of the target; no corroborating profile data found.",
@@ -163,7 +176,10 @@ def demo_observations() -> list[Observation]:
                 "emails": [DEMO_EMAIL],
                 "display_name": "Example User",
             },
-            excerpt="<title>Example User — engineering notes</title> … contact: example.user@example.com",
+            excerpt=(
+                "<title>Example User — engineering notes</title> "
+                "… contact: example.user@example.com"
+            ),
             edges=[
                 EdgeHint(
                     type="MENTIONS",
@@ -244,8 +260,14 @@ def demo_observations() -> list[Observation]:
             "Example Registrar LLC",
             days=91,
             url=f"https://rdap.example.net/domain/{DEMO_DOMAIN}",
-            data={"registrar": "Example Registrar LLC", "created": "2019-04-02", "status": "active"},
-            excerpt="Registrar: Example Registrar LLC · created 2019-04-02 · registrant redacted",
+            data={
+                "registrar": "Example Registrar LLC",
+                "created": "2019-04-02",
+                "status": "active",
+            },
+            excerpt=(
+                "Registrar: Example Registrar LLC · created 2019-04-02 · registrant redacted"
+            ),
             assertion=Assertion.OBSERVED,
         ),
         _obs(
@@ -298,9 +320,11 @@ async def seed_demo_investigation(session: AsyncSession, owner_id: uuid.UUID) ->
 
     extractor = EntityExtractor(session, investigation.id)
     username_target = Target(
-        type="username", value=DEMO_USERNAME, normalized=DEMO_USERNAME, depth=0
+        type=TargetType.USERNAME, value=DEMO_USERNAME, normalized=DEMO_USERNAME, depth=0
     )
-    domain_target = Target(type="domain", value=DEMO_DOMAIN, normalized=DEMO_DOMAIN, depth=1)
+    domain_target = Target(
+        type=TargetType.DOMAIN, value=DEMO_DOMAIN, normalized=DEMO_DOMAIN, depth=1
+    )
 
     observations = demo_observations()
     for observation in observations:

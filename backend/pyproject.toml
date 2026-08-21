@@ -45,18 +45,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-extend-exclude = ["alembic/versions"]
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ASYNC", "S", "RUF"]
-ignore = ["S101", "B008", "N818", "RUF001", "RUF002", "RUF003", "SIM108"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S", "E501"]
-"app/demo/*" = ["E501"]
+# Ruff is configured at the repository root (ruff.toml) so backend and plugins are
+# linted under one policy.
 
 [tool.mypy]
 python_version = "3.11"

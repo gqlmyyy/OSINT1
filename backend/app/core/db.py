@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy import CHAR, Dialect, MetaData, types
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
@@ -54,8 +60,11 @@ JSONVariant = types.JSON().with_variant(JSONB, "postgresql")
 
 
 class Base(DeclarativeBase):
-    metadata = MetaData(naming_convention=NAMING_CONVENTION)
-    type_annotation_map = {dict[str, Any]: JSONVariant, list[str]: JSONVariant}
+    metadata: ClassVar[MetaData] = MetaData(naming_convention=NAMING_CONVENTION)
+    type_annotation_map: ClassVar[dict[Any, Any]] = {
+        dict[str, Any]: JSONVariant,
+        list[str]: JSONVariant,
+    }
 
 
 _engine: AsyncEngine | None = None

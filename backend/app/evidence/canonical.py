@@ -77,9 +77,9 @@ def canonical_key(kind: str, value: str, attributes: dict[str, Any] | None = Non
         digest = hashlib.sha1(n.normalize_url(value).encode(), usedforsecurity=False).hexdigest()
         return f"url:{digest}"
     if entity_type in (EntityType.AVATAR, EntityType.IMAGE):
-        digest = attributes.get("sha256") or attributes.get("hash")
-        if digest:
-            return f"avatar:{str(digest).lower()}"
+        image_hash = attributes.get("sha256") or attributes.get("hash")
+        if image_hash:
+            return f"avatar:{str(image_hash).lower()}"
         return f"avatar:{hashlib.sha256(n.normalize_url(value).encode()).hexdigest()}"
     if entity_type is EntityType.CRYPTO_HASH:
         algo = str(attributes.get("algo") or "sha256").lower()

@@ -8,8 +8,8 @@ import pytest
 from app.core.config import Settings
 from app.security.ssrf import (
     ResponseTooLarge,
-    SSRFBlocked,
     SafeAsyncClient,
+    SSRFBlocked,
     resolve_and_validate,
     validate_url,
 )
