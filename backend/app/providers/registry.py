@@ -12,6 +12,7 @@ import sys
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 
 from app.core.config import get_settings
 from app.core.enums import HealthState
@@ -19,6 +20,10 @@ from app.providers.base import OSINTProvider
 from app.providers.types import ProviderCapabilities, ProviderHealth
 
 logger = logging.getLogger(__name__)
+
+#: Parent package plugin modules are registered under, so they can be imported,
+#: monkeypatched and introspected by dotted name like any other module.
+PLUGIN_NAMESPACE = "graphintel_plugins"
 
 
 @dataclass
@@ -65,13 +70,24 @@ class ProviderRegistry:
                 logger.exception("failed to load plugin %s", entry.name)
         return self
 
+    @staticmethod
+    def _ensure_namespace() -> None:
+        """Register the parent package so plugin modules are importable by dotted name."""
+        if PLUGIN_NAMESPACE in sys.modules:
+            return
+        package = ModuleType(PLUGIN_NAMESPACE)
+        package.__path__ = []  # namespace package: submodules are loaded by file path
+        sys.modules[PLUGIN_NAMESPACE] = package
+
     def _load_plugin(self, plugin_name: str, module_file: Path) -> None:
-        module_name = f"graphintel_plugins.{plugin_name}"
+        self._ensure_namespace()
+        module_name = f"{PLUGIN_NAMESPACE}.{plugin_name}"
         spec = importlib.util.spec_from_file_location(module_name, module_file)
         if spec is None or spec.loader is None:
             raise ImportError(f"cannot build import spec for {module_file}")
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
+        setattr(sys.modules[PLUGIN_NAMESPACE], plugin_name, module)
         spec.loader.exec_module(module)
         classes = getattr(module, "PROVIDERS", None)
         if not classes:

@@ -168,7 +168,7 @@ async def add_targets(
     )
     if rejected and not created:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "invalid_targets", "message": "; ".join(rejected)},
         )
     return created
@@ -197,7 +197,7 @@ async def start_scan(
     unknown = [name for name in requested if name not in available]
     if unknown:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "unknown_provider", "message": f"not enabled: {', '.join(unknown)}"},
         )
 

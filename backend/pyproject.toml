@@ -69,8 +69,5 @@ no_implicit_optional = true
 strict_equality = true
 exclude = "(alembic|tests)"
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests", "../plugins"]
-pythonpath = ["."]
-filterwarnings = ["ignore::DeprecationWarning"]
+# Pytest is configured at the repository root (pytest.ini) so one run covers
+# backend/tests and every plugins/*/tests directory.

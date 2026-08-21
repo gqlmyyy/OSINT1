@@ -19,7 +19,7 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
                 "detail": {
                     "code": "validation_error",
@@ -49,14 +49,14 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(NormalizationError)
     async def _normalization(_: Request, exc: NormalizationError) -> JSONResponse:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": {"code": "invalid_identifier", "message": str(exc)}},
         )
 
     @app.exception_handler(CanonicalError)
     async def _canonical(_: Request, exc: CanonicalError) -> JSONResponse:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": {"code": "canonicalization_failed", "message": str(exc)}},
         )
 

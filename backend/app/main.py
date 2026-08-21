@@ -61,7 +61,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await dispose_engine()
 
 
-def create_app(**overrides: Any) -> FastAPI:
+def create_app(*, with_lifespan: bool = True, **overrides: Any) -> FastAPI:
+    """Build the app. Tests pass ``with_lifespan=False`` because they own the schema."""
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
@@ -70,7 +71,7 @@ def create_app(**overrides: Any) -> FastAPI:
         docs_url="/api/docs",
         redoc_url=None,
         openapi_url="/api/openapi.json",
-        lifespan=lifespan,
+        lifespan=lifespan if with_lifespan else None,
         **overrides,
     )
 
