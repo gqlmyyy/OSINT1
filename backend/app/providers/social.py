@@ -48,6 +48,10 @@ class SocialProvider(OSINTProvider):
         website: str | None = None,
         avatar: str | None = None,
         avatar_hash: str | None = None,
+        #: Perceptual hash of the avatar image, when the provider actually fetched it.
+        #: Most social providers only see the avatar *URL* and leave this unset; see
+        #: app/identity/avatar.py for what it is used for.
+        avatar_phash: str | None = None,
         location: str | None = None,
         raw: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
@@ -129,6 +133,7 @@ class SocialProvider(OSINTProvider):
                 "website": website,
                 "avatar": avatar,
                 "avatar_hash": avatar_hash,
+                "avatar_phash": avatar_phash,
                 "location": location,
                 **(extra or {}),
             },

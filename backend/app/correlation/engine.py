@@ -53,6 +53,81 @@ BAND_LABELS: dict[MatchBand, str] = {
 }
 
 
+#: Signals that are corroboration of a *shared artefact*, as opposed to two accounts
+#: merely resembling each other. A candidate with none of these is built entirely from
+#: resemblance, which is where false positives come from.
+_CORROBORATING = frozenset(
+    {"same_email", "same_avatar", "same_website", "same_repository", "shared_external_link"}
+)
+
+
+@dataclass(frozen=True)
+class FalsePositiveRisk:
+    """How likely this candidate is to be two different people who merely look alike.
+
+    Deliberately separate from the confidence score, and deliberately *not* its inverse.
+    Score answers "how much evidence is there?"; this answers "what kind of evidence is
+    it, and what is conspicuously missing?" A 0.65 built on a globally unique handle and
+    a shared website is a different proposition from a 0.65 built on `johnsmith` and a
+    matching display name, and a single number cannot express that difference.
+    """
+
+    level: str  # high | medium | low
+    reasons: list[str] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, object]:
+        return {"level": self.level, "reasons": self.reasons, "missing": self.missing}
+
+
+def assess_false_positive_risk(outcomes: list[SignalOutcome]) -> FalsePositiveRisk:
+    """Judge a candidate by the *shape* of its evidence, not its total.
+
+    The rule that matters: agreement on things many unrelated people share (a common
+    handle, a popular display name) is weak however much of it accumulates, and the
+    absence of any shared artefact is itself informative. Both are stated explicitly so
+    a reader can see why a number should not be trusted.
+    """
+    fired = [o for o in outcomes if o.fired]
+    contradicted = [o for o in outcomes if not o.fired]
+    corroborating = [o for o in fired if o.name in _CORROBORATING]
+    direct = [o for o in fired if o.direct_evidence]
+
+    reasons: list[str] = []
+    missing: list[str] = []
+
+    common_handle = next(
+        (o for o in fired if o.name == "same_username" and "common handle" in o.reason),
+        None,
+    )
+    if common_handle is not None:
+        reasons.append(
+            "the shared username is a common one, so many unrelated people hold it"
+        )
+    if not corroborating:
+        missing.append("no shared artefact (email, website, avatar, repository or link)")
+    if not direct:
+        missing.append("no directly observed evidence, only resemblance")
+    if len(fired) <= 1:
+        reasons.append("only one signal supports this link")
+    for outcome in contradicted:
+        reasons.append(f"contradicting signal: {outcome.reason}")
+
+    if not fired:
+        level = "high"
+    elif direct and len(corroborating) >= 2:
+        level = "low"
+    elif direct or len(corroborating) >= 1:
+        level = "medium" if (common_handle is not None or contradicted) else "low"
+    else:
+        # Resemblance only. A common handle on top of that is the textbook false match.
+        level = "high" if (common_handle is not None or len(fired) <= 1) else "medium"
+
+    if level == "low" and not reasons:
+        reasons.append("multiple independent signals, including a directly observed one")
+    return FalsePositiveRisk(level=level, reasons=reasons, missing=missing)
+
+
 @dataclass
 class MatchAssessment:
     entity_a: Entity
@@ -60,6 +135,10 @@ class MatchAssessment:
     score: float
     band: MatchBand
     outcomes: list[SignalOutcome] = field(default_factory=list)
+
+    @property
+    def false_positive_risk(self) -> FalsePositiveRisk:
+        return assess_false_positive_risk(self.outcomes)
 
     @property
     def reasons(self) -> list[str]:
@@ -199,6 +278,7 @@ class CorrelationEngine:
                     band=str(assessment.band),
                     reasons=assessment.reasons,
                     explanation=assessment.explanation,
+                    risk=assessment.false_positive_risk.as_dict(),
                 )
                 session.add(row)
                 await session.flush()
@@ -207,6 +287,7 @@ class CorrelationEngine:
                 row.band = str(assessment.band)
                 row.reasons = assessment.reasons
                 row.explanation = assessment.explanation
+                row.risk = assessment.false_positive_risk.as_dict()
                 row.updated_at = utcnow()
 
             await graph.add_relationship(

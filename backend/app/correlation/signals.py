@@ -19,6 +19,7 @@ from typing import Any
 
 from app.core.enums import EntityType
 from app.evidence import normalizer as norm
+from app.identity import avatar, rarity
 
 
 @dataclass(frozen=True)
@@ -95,10 +96,49 @@ class SharedIdentifierSignal(MatchSignal):
 
 
 class SameUsernameSignal(SharedIdentifierSignal):
+    """A shared handle, weighted by how contested that handle is.
+
+    Two accounts sharing `johnsmith` and two accounts sharing `xk7q_zephyr` are not
+    equally good evidence, and treating them alike is the single largest source of false
+    identity matches in username-driven OSINT. The base likelihood ratio is therefore
+    multiplied by a bounded rarity factor (see :mod:`app.identity.rarity`).
+
+    What the modifier is *not* allowed to do, by construction:
+
+    * it cannot introduce a signal — no shared handle, no outcome;
+    * it cannot make a username into direct evidence, so it can never gate ``CONFIRMED``;
+    * it cannot lift a username-only pair past "possible" — the ceiling is
+      ``base_lr x MAX_FACTOR``, which
+      :func:`app.identity.rarity.max_username_only_score` evaluates to ~0.66 against the
+      engine's prior, below the 0.70 "probable" threshold.
+
+    The Bayesian core is untouched: this changes one likelihood ratio, not how ratios
+    combine.
+    """
+
     name = "same_username"
     kind = "username"
     positive_lr = 6.0
     negative_lr = 0.85
+
+    def evaluate(self, a: EntityView, b: EntityView) -> SignalOutcome | None:
+        left, right = self._values(a), self._values(b)
+        if not left or not right:
+            return None
+        shared = left & right
+        if not shared:
+            return self._miss(f"different {self.kind}")
+
+        handle = sorted(shared)[0]
+        assessment = rarity.assess(handle)
+        weighted_lr = self.positive_lr * assessment.factor
+        return SignalOutcome(
+            self.name,
+            True,
+            weighted_lr,
+            f"same username: {handle} ({assessment.label} handle - {assessment.reason})",
+            direct_evidence=self.direct_evidence,
+        )
 
 
 class SameEmailSignal(SharedIdentifierSignal):
@@ -121,6 +161,55 @@ class SameAvatarSignal(MatchSignal):
         if left.lower() == right.lower():
             return self._hit(f"identical avatar image hash ({left[:12]}...)")
         return None
+
+
+class SimilarAvatarSignal(MatchSignal):
+    """The same *picture* used on both accounts, after re-encoding.
+
+    Platforms resize and re-compress avatars on upload, so the same photograph has a
+    different byte hash everywhere — which is why :class:`SameAvatarSignal` alone misses
+    most real cases. A perceptual hash closes that gap.
+
+    Three properties make this safe to act on, and all three are deliberate:
+
+    * ``direct_evidence = False``. A perceptual match says two accounts show the same
+      image, not that one person controls both — the image could be a stock photo, a
+      meme, a band logo or a platform default. So this signal can raise a score but can
+      never gate the ``CONFIRMED`` band, which still requires a directly observed shared
+      artefact.
+    * The likelihood ratio is well below the exact-hash signal's, because "visually the
+      same file" is weaker evidence than "byte-identical file".
+    * It stays quiet in the ambiguous middle. Beyond the same-image threshold it emits
+      nothing rather than a weak match: a vaguely similar avatar is not evidence.
+
+    Skipped entirely when the exact hashes already agree, so one shared avatar cannot be
+    counted twice.
+    """
+
+    name = "same_image_candidate"
+    positive_lr = 5.0
+    direct_evidence = False  # a picture is not a person; see the class docstring
+
+    def evaluate(self, a: EntityView, b: EntityView) -> SignalOutcome | None:
+        exact_left = a.attr("avatar_hash") or a.attr("avatar_sha256")
+        exact_right = b.attr("avatar_hash") or b.attr("avatar_sha256")
+        if exact_left and exact_right and exact_left.lower() == exact_right.lower():
+            return None  # SameAvatarSignal already covers this, at full weight
+
+        left, right = a.attr("avatar_phash"), b.attr("avatar_phash")
+        if not left or not right:
+            return None
+        try:
+            distance = avatar.hamming_distance(left, right)
+        except ValueError:
+            return None
+        if distance > avatar.SAME_IMAGE_THRESHOLD:
+            return None
+        return self._hit(
+            f"same image candidate: profile pictures match perceptually "
+            f"({avatar.similarity(left, right):.0%} of bits, distance {distance}). "
+            "This identifies the picture, not the person."
+        )
 
 
 class SameWebsiteSignal(MatchSignal):
@@ -243,6 +332,7 @@ def _jaccard(a: set[str], b: set[str]) -> float:
 DEFAULT_SIGNALS: list[MatchSignal] = [
     SameEmailSignal(),
     SameAvatarSignal(),
+    SimilarAvatarSignal(),
     SameWebsiteSignal(),
     SameRepositorySignal(),
     SharedExternalLinkSignal(),

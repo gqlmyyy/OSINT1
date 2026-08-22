@@ -22,6 +22,21 @@ from app.providers.types import (
 GRAVATAR = "https://www.gravatar.com"
 
 
+def _perceptual_hash(data: bytes) -> str | None:
+    """Best-effort perceptual hash.
+
+    A default or malformed avatar must not fail the whole lookup: the byte hash and the
+    profile data are still worth having, so an undecodable image simply yields no
+    perceptual fingerprint rather than an error.
+    """
+    from app.identity.avatar import UnsafeImage, perceptual_hash
+
+    try:
+        return perceptual_hash(data)
+    except UnsafeImage:
+        return None
+
+
 class GravatarProvider(OSINTProvider):
     name = "gravatar"
     provider_type = ProviderType.IMAGE
@@ -48,6 +63,10 @@ class GravatarProvider(OSINTProvider):
 
         # A stable hash of the actual image bytes: this is what SameAvatarSignal compares.
         image_hash = sha256_hex(response.content)
+        # And a perceptual hash, which survives the resizing and re-compression every
+        # platform applies on upload. The byte hash is exact evidence; this one is a
+        # "same picture" candidate. See app/identity/avatar.py.
+        image_phash = _perceptual_hash(response.content)
         observations = [
             self.observation(
                 kind="avatar",
@@ -56,6 +75,7 @@ class GravatarProvider(OSINTProvider):
                 match=MatchStrength.EXACT_ID,
                 data={
                     "sha256": image_hash,
+                    "avatar_phash": image_phash,
                     "gravatar_hash": digest,
                     "content_type": response.headers.get("content-type", ""),
                     "bytes": len(response.content),
@@ -103,6 +123,7 @@ class GravatarProvider(OSINTProvider):
                             "username": entry.get("preferredUsername"),
                             "display_name": entry.get("displayName"),
                             "avatar_hash": image_hash,
+                            "avatar_phash": image_phash,
                             "bio": (entry.get("aboutMe") or None),
                         },
                         raw=entry,

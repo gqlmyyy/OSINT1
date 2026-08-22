@@ -127,3 +127,7 @@ class IdentityCandidate(UUIDPk, Timestamped, Base):
     band: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     reasons: Mapped[list[str]] = mapped_column(JSONVariant, default=list, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    #: False-positive assessment: {level, reasons[], missing[]}. Stored rather than
+    #: re-derived from `reasons` at read time, because parsing prose back into structure
+    #: is exactly the kind of fragility that silently degrades into a wrong answer.
+    risk: Mapped[dict[str, Any]] = mapped_column(JSONVariant, default=dict, nullable=False)
