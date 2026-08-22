@@ -67,14 +67,46 @@ plugins/
 ├── website/provider.py     (URL intelligence: title, links, emails, socials)
 ├── username_enum/provider.py  (+ platforms.json manifest)
 ├── search/provider.py      (SearxNG-compatible JSON endpoint)
+├── image_geo/provider.py   (EXIF GPS from a fetched image; see docs/06 §image_geo)
 ├── maigret/provider.py     ─┐
 ├── sherlock/provider.py     ├─ optional subprocess adapters, argv-only, no shell
-└── holehe/provider.py      ─┘
+├── holehe/provider.py      ─┘
+├── breach/
+│   └── hibp/provider.py    (breach *metadata* via the official HIBP API)
+└── social/
+    ├── mastodon/provider.py   (public API, unauthenticated)
+    ├── instagram/provider.py  (official API only)
+    ├── telegram/provider.py   (public channel preview, unauthenticated)
+    ├── twitter/provider.py    (official X API v2 only)
+    ├── tiktok/provider.py     (declared; official API only, not yet configured)
+    └── linkedin/provider.py   (declared; official API only, not yet configured)
 ```
 
-`ProviderRegistry.discover(path)` scans each folder for `provider.py`, imports it with
-`importlib.util`, and reads `PROVIDERS: list[type[OSINTProvider]]`. A plugin that raises
-on import is reported as `unavailable` with the traceback — it never takes down startup.
+`ProviderRegistry.discover(path)` scans each top-level folder for a `provider.py`, and —
+if none is found there — one level deeper (`plugins/<category>/<name>/provider.py`). It
+imports each with `importlib.util` and reads `PROVIDERS: list[type[OSINTProvider]]`. The
+nesting is a generic mechanism, not specific to `social/`: `breach/`, or any future
+category folder, works the same way with no registry change. A plugin that raises on
+import is reported as `unavailable` with the traceback — it never takes down startup.
+
+### 3.1 The "honest degrade" shape
+
+Several providers above (`instagram`, `twitter`, `tiktok`, `linkedin`) share one pattern,
+used whenever a platform's data is not reachable without either an official API credential
+or defeating an access control this project will not defeat:
+
+* `capabilities().requires_api_key = True`,
+* `health_check()` returns `ProviderHealth.unavailable(name, <actionable instructions>)`
+  when no credential is configured — never a generic failure, always what to do,
+* `search()` returns `[]` immediately when unconfigured — no network call is made,
+* a source-level (not docstring-level) AST policy test asserts the file contains no
+  session/cookie/CAPTCHA/bot-token/browser-automation machinery in executable code, so a
+  future edit that adds a bypass fails the suite instead of silently shipping.
+
+`tiktok` and `linkedin` take this to its logical end: since neither platform has *any*
+unauthenticated path, their providers are pure declarations — `search()` never makes a
+request at all. They exist only so the platform shows up, correctly, as `Requires API` in
+the source list and platform dashboard instead of being silently missing.
 
 Runtime enable/disable and per-provider config live in the `sources` table and are edited
 through `/api/v1/sources` (§11), so an operator can turn a provider off without a redeploy.

@@ -164,15 +164,32 @@ plugins/
 ├── website/        title, outbound links, published contacts, technology hints
 ├── username_enum/  32 public profile pages, manifest-driven
 ├── search/         a SearxNG-compatible endpoint you configure
+├── image_geo/      EXIF GPS from an already-discovered image (no facial recognition)
 ├── maigret/   ─┐
 ├── sherlock/   ├─  optional CLI adapters — argv-only, no shell, no vendored code
-└── holehe/    ─┘
+├── holehe/    ─┘
+├── breach/
+│   └── hibp/       breach *metadata* (name, date, source) via the official HIBP API
+└── social/
+    ├── mastodon/   public API, unauthenticated
+    ├── instagram/  official API only — "Requires API" until you configure a token
+    ├── telegram/   public channel preview (t.me/s/<channel>), no login
+    ├── twitter/    official X API v2 only — "Requires API" until configured
+    ├── tiktok/     declared — official API only, not yet wired up
+    └── linkedin/   declared — official API only, not yet wired up
 ```
 
 Adding a provider is a new folder with a `provider.py` exposing
 `PROVIDERS = [YourProvider]`. **No change to the graph engine, database core, or frontend
-is required.** See [`plugins/README.md`](plugins/README.md) and
-[docs/03](docs/03-provider-architecture.md).
+is required** — the registry discovers `plugins/<name>/provider.py` and, one level deeper,
+`plugins/<category>/<name>/provider.py`. See [`plugins/README.md`](plugins/README.md),
+[docs/03](docs/03-provider-architecture.md), and the social/investigation-specific design
+in [docs/09](docs/09-social-intelligence-layer.md).
+
+A platform with no lawful unauthenticated route to its data (X, TikTok, LinkedIn) is never
+scraped around — it ships as an honest, declared `Requires API` entry instead, becomes
+usable the moment you supply your own credential, and is provably free of any bypass code
+via a source-level policy test in that provider's own test file.
 
 Providers can be enabled, disabled, and rate-limited at runtime from the **Sources** tab
 or `PATCH /api/v1/sources/{name}` — no redeploy. A provider whose `health_check()` reports
@@ -323,6 +340,24 @@ for doing so lawfully.
   as though it were established fact, and do not present the tool's output as proof.
 - Do not use this against people who have not consented, outside an authorised engagement
   or another lawful basis.
+- **No facial recognition, and none will be added.** This is a deliberate policy
+  exclusion, not a missing feature: matching an individual's identity from their face is
+  a stalking-enablement capability far more than a legitimate OSINT one, and no amount of
+  confidence banding or evidence-linking makes that acceptable here. Where an image is
+  useful evidence, the tool stays non-biometric — EXIF GPS, file hashes, perceptual-hash
+  "same image candidate" (never "same person"), and post/caption context.
+- **Image and EXIF data carries its own duty of care.** `plugins/image_geo` extracts
+  whatever location and device metadata a source image actually contains; most platforms
+  strip this on upload, and the tool says so rather than presenting the absence as a
+  failure. Where a photo *does* carry embedded coordinates, that is precise real-world
+  location data about wherever the photo was taken — treat it with the same minimisation
+  and retention discipline as any other personal data, and remember it may describe a
+  location the subject did not intend to disclose.
+- **Breach lookups (`plugins/breach/hibp`) report membership, never content.** The tool
+  stores only which breach, when, and where it was reported — never any leaked
+  credential, password, or other exposed field, which HIBP's API does not return to any
+  caller in the first place. A breach hit is a lead to verify through a lawful channel,
+  not something to act on directly.
 
 Depending on your jurisdiction, this activity may be regulated by GDPR, CCPA, computer
 misuse law, or other statutes. This README is not legal advice.

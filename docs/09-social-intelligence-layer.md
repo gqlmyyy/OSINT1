@@ -118,12 +118,52 @@ credentials question rather than an engineering one.
 ## 6. Where the code lives
 
 ```
-backend/app/social/            text.py  interactions.py  findings.py     ← new, small
-backend/app/providers/social.py                                          ← SocialProvider base
+backend/app/social/            text.py  interactions.py  findings.py  exif.py   ← new, small
+backend/app/evidence/decay.py                                                   ← confidence decay
+backend/app/providers/social.py                                                 ← SocialProvider base
 plugins/social/mastodon/       provider.py                               ← public API
 plugins/social/instagram/      provider.py                               ← official API only
+plugins/social/telegram/       provider.py                               ← public channel preview
+plugins/social/twitter/        provider.py                               ← official API (X API v2)
+plugins/social/tiktok/         provider.py                               ← declared, official API only
+plugins/social/linkedin/       provider.py                               ← declared, official API only
+plugins/image_geo/             provider.py                               ← EXIF GPS, not a "social" plugin
+plugins/breach/hibp/           provider.py                               ← breach metadata, not "social" either
 ```
 
 The registry now discovers plugins nested one level deep, so `plugins/social/<platform>/`
 works without any change to the graph engine, the database, or the frontend — the
-requirement in §31.
+requirement in §31. The nesting is generic, not special-cased to "social": `plugins/breach/hibp/`
+and any other future category directory work exactly the same way.
+
+## 7. Generalizing the pattern: one more honest platform, two honest stubs
+
+Every platform provider in this layer answers the same question the same way — *is this
+data reachable without defeating an access control?* — and the answer changes what kind
+of provider gets built, not whether one gets built:
+
+* **Telegram** — `t.me/s/<channel>` is Telegram's own server-rendered public preview
+  (the same page behind its "view in Telegram" embed widget), reachable with no login.
+  So, like Mastodon, this is a real, working, unauthenticated provider — restricted by
+  design to public channels only. Groups, discussion threads, and anything behind an
+  invite link are out of scope and this provider makes no attempt to reach them; there is
+  no join/session/bot-token code anywhere in it (enforced by a policy test).
+* **X (Twitter)** — unauthenticated access to the public web app itself has required a
+  session since 2023, and X's terms prohibit automated access outside the API. So this
+  provider is Instagram's shape again: official API v2 only, `requires_api_key=True`,
+  reports `unavailable` with setup instructions (`X_BEARER_TOKEN`) when no token is
+  configured, and has no scraping path to disable.
+* **TikTok and LinkedIn** — declared-only stubs. Both platforms' public surfaces sit
+  behind bot-detection or a login wall that this project will not defeat, and neither
+  provider attempts a request of any kind while unconfigured (`search()` always returns
+  `[]`; there is no HTTP call to make). Each exists purely so the platform shows up,
+  correctly, as `Requires API` in the dynamically-built platform dashboard (§8) instead
+  of being silently absent — the same reasoning as the Instagram/Mastodon split in §5,
+  taken to its logical end for platforms with no unauthenticated data at all.
+
+## 8. The platform dashboard is provider-driven, not hardcoded
+
+The "Supported Platforms" view is built by iterating the live provider registry and
+reading each `SocialProvider`'s `platform` name, current `health_check()` state, and
+`capabilities()` — never a hardcoded platform list. Adding a new `plugins/social/<x>/`
+folder makes it appear automatically, in the same design, with no frontend change.

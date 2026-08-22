@@ -31,6 +31,33 @@ The product's whole job is "fetch this URL an analyst typed", which is textbook 
 `ALLOW_PRIVATE_NETWORKS=true` exists **only** for the test suite and is refused when
 `ENV=production` (`core/config.py` validator, `test_config.py::test_prod_refuses_private_networks`).
 
+### B3.1 — Untrusted image parsing (`plugins/image_geo`)
+
+Downloading and decoding an arbitrary image is its own attack surface, separate from
+SSRF (which governs *where* the request goes) — this is about what a malicious *body*
+from an otherwise-legitimate host can do to the parser.
+
+| Attack | Mitigation | Where | Test |
+|---|---|---|---|
+| Oversized response (multi-GB body) | the existing SSRF guard's `HTTP_MAX_BYTES` streaming cap raises `ResponseTooLarge` before the body is ever fully buffered; the provider catches it and reports a graceful `unavailable` observation rather than propagating a raw error | `security/ssrf.py` (guard), `image_geo/provider.py:search` | `test_image_geo.py::test_oversized_image_is_rejected_gracefully` |
+| Decompression bomb (small file, huge decoded pixel buffer) | `MAX_PIXELS=40_000_000` enforced independently of Pillow's own `Image.MAX_IMAGE_PIXELS` guard, checked before full decode | `social/exif.py:extract_gps_exif` | `test_image_geo.py` (oversized/corrupt cases) |
+| Corrupted or non-image bytes served as an image | `Image.verify()` structural check first; every Pillow exception is caught and normalized to one `UnsafeImage` type — the provider never has to enumerate Pillow's exception hierarchy, and a decode failure can never crash a scan | `social/exif.py` | `test_image_geo.py::test_corrupt_image_is_rejected_not_raised` |
+| Malformed/out-of-range GPS tags (e.g. latitude > 90) | explicit range validation after DMS→decimal conversion; rejected rather than reported as a coordinate | `social/exif.py` | `test_image_geo.py` (GPS range case) |
+| Non-image content-type served at an image URL | `content-type` checked before any decode is attempted | `image_geo/provider.py` | `test_image_geo.py::test_non_image_content_type_is_ignored` |
+
+Two absence states are distinguished deliberately, because conflating them would read as
+a false negative: **no EXIF at all** (most platforms strip it on upload — expected, not a
+failure) versus **EXIF present but no GPS tags** (the capturing device had location
+services off, or the platform stripped GPS specifically while keeping other metadata).
+The observation's `note` field states which case applies, in plain language, rather than
+leaving the UI to show a bare empty result either way.
+
+The optional Beta non-biometric visual-analysis feature described in the platform's UI
+brief (OCR/landmark/sign detection, à la Bellingcat's methodology) is **not implemented**
+in this pass — see the project's own delivery notes for why, and note it explicitly
+excludes anything resembling facial or person recognition (§ "Explicitly out of scope by
+design" below), independent of whether it is ever built.
+
 ## B4 — Plugins & external tools
 
 | Attack | Mitigation |
@@ -67,7 +94,18 @@ The product's whole job is "fetch this URL an analyst typed", which is textbook 
   fragment (PG `to_tsquery`) uses `plainto_tsquery(:q)` binding, never string formatting.
 * **Secrets** — pulled from env only; `.env` is git-ignored; `SECRET_KEY` must be ≥32 chars
   and is refused if left at the default when `ENV=production`; API keys are masked in
-  `/sources` output and in logs by a logging filter.
+  `/sources` output and in logs by a logging filter. This applies uniformly to every
+  bearer-token/API-key-gated provider (`instagram`, `twitter`, `hibp`, and `tiktok`/
+  `linkedin` once configured) — each is covered by its own
+  `test_the_..._is_never_stored_in_evidence` test asserting the credential never appears
+  in a stored `Observation.raw` or `.data`.
+* **Breach data minimisation (`plugins/breach/hibp`)** — the provider reads and stores
+  only a breach's name, title, date, and reporting source from the HIBP API response; it
+  never reads HIBP's `Description` or `DataClasses` fields into any variable, let alone
+  stores them, and never requests or could receive actual leaked credentials (HIBP's API
+  does not return them to any caller). Enforced by a source-level policy test
+  (`test_hibp.py::test_provider_never_reads_dataclasses_or_description_fields`) in
+  addition to the runtime assertion that stored data contains none of it.
 * **Audit logging** — `audit_logs` records actor, action, target, IP for auth events,
   scans, source changes, exports, and deletions.
 * **PII** — investigations hold personal data about real people. `DELETE /investigations/{id}`
@@ -81,6 +119,14 @@ password brute-force, session-cookie theft, private-profile access, access-contr
 or vulnerability exploitation. The provider contract has no field to carry a third-party
 *user* credential, and any plugin attempting these is a licence and policy violation of
 this project.
+
+**No facial recognition.** The platform deliberately builds no feature that matches an
+individual's identity from a face — this is excluded as a matter of policy, not an
+engineering gap to fill later: it is a stalking-enablement tool far more than a
+legitimate investigative one, and no confidence band or evidence requirement makes that
+acceptable. Where an image *is* useful evidence, matching stays non-biometric: EXIF GPS
+(`plugins/image_geo`), file hashes, and post/caption context. Any future contribution
+proposing face-matching against this codebase should be rejected on this ground alone.
 
 ## Residual risks (accepted, v1)
 
