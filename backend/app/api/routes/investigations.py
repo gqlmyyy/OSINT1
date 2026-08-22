@@ -390,6 +390,7 @@ async def list_matches(
             "band_label": BAND_LABELS.get(MatchBand(row.band), row.band),
             "reasons": row.reasons,
             "explanation": row.explanation,
+            "risk": row.risk or {},
             "created_at": row.created_at,
         }
         for row in rows

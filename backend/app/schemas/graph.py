@@ -154,6 +154,11 @@ class MatchOut(ORMModel):
     band_label: str = ""
     reasons: list[str]
     explanation: str
+    #: False-positive assessment: {level, reasons[], missing[]}. Separate from `score`
+    #: on purpose — score says how much evidence there is, this says what kind it is and
+    #: what is conspicuously absent. Empty for candidates recorded before the assessment
+    #: existed; they gain one on the next correlation run.
+    risk: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
 

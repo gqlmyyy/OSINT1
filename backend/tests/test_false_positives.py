@@ -288,3 +288,18 @@ async def test_risk_is_persisted_on_the_candidate_row(session, investigation) ->
     assert candidate is not None, "a distinctive handle plus a shared website must correlate"
     assert candidate.risk.get("level") in ("low", "medium", "high")
     assert isinstance(candidate.risk.get("reasons"), list)
+
+
+async def test_risk_is_exposed_on_the_matches_endpoint(client, auth_client) -> None:
+    """A risk the API hides is a risk the analyst never sees."""
+    seeded = await auth_client.post("/api/v1/demo/seed")
+    assert seeded.status_code == 201, seeded.text
+    investigation_id = seeded.json()["investigation_id"]
+
+    response = await auth_client.get(f"/api/v1/investigations/{investigation_id}/matches")
+    assert response.status_code == 200
+    matches = response.json()
+    assert matches, "the demo investigation must produce identity candidates"
+    for match in matches:
+        assert "risk" in match
+        assert match["risk"].get("level") in ("low", "medium", "high")
