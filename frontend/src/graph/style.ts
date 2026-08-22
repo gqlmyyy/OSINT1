@@ -65,6 +65,13 @@ export const cytoscapeStyle: StylesheetStyle[] = [
     },
   },
   {
+    // Confidence decay (evidence has aged past the staleness threshold): reduced visual
+    // weight rather than an alarming color, matching the "coming-soon/limited" treatment
+    // used everywhere else — a dashed border, not a warning color.
+    selector: 'node[?isStale]',
+    style: { 'border-style': 'dashed', 'border-color': '#8b93a7' },
+  },
+  {
     selector: 'node[?isCluster]',
     style: {
       shape: 'round-rectangle',

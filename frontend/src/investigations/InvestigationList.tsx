@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { Empty, timeAgo } from '@/components/ui';
+import { Empty, SkeletonListRow, timeAgo } from '@/components/ui';
 import { NewInvestigationWizard } from './NewInvestigationWizard';
 
 export function InvestigationList() {
@@ -46,7 +46,11 @@ export function InvestigationList() {
       </p>
 
       {isLoading ? (
-        <Empty>Loading…</Empty>
+        <div className="divide-y divide-line rounded border border-line bg-ink-850">
+          {[0, 1, 2, 3].map((row) => (
+            <SkeletonListRow key={row} />
+          ))}
+        </div>
       ) : !data?.items.length ? (
         <Empty>No investigations yet.</Empty>
       ) : (

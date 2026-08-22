@@ -135,7 +135,12 @@ function EntitiesTab({ investigationId }: { investigationId: string }) {
                     {node.type} · {node.degree} link{node.degree === 1 ? '' : 's'}
                   </span>
                 </span>
-                <Confidence value={node.confidence} />
+                <Confidence
+                  value={node.display_confidence}
+                  rawValue={node.confidence}
+                  isStale={node.is_stale}
+                  note={node.staleness_note}
+                />
               </button>
             </li>
           ))}

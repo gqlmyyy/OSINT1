@@ -67,6 +67,10 @@ export interface GraphNode {
   label: string;
   canonical_key: string;
   confidence: number;
+  /** Confidence after time-decay, for display only — the stored value never changes. */
+  display_confidence: number;
+  is_stale: boolean;
+  staleness_note: string | null;
   cluster: string;
   degree: number;
   depth: number;
@@ -161,6 +165,9 @@ export interface EntityDetail {
   label: string;
   canonical_key: string;
   confidence: number;
+  display_confidence: number;
+  is_stale: boolean;
+  staleness_note: string | null;
   attributes: Record<string, unknown>;
   sources: string[];
   first_seen: string;

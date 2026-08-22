@@ -18,6 +18,8 @@ export function toElements(graph: GraphPayload): ElementDefinition[] {
       type: node.type,
       color: colorForType(node.type),
       confidence: node.confidence,
+      displayConfidence: node.display_confidence,
+      isStale: node.is_stale,
       isTarget: node.is_target,
       isCluster: node.is_cluster,
       cluster: node.cluster,

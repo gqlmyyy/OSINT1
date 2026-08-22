@@ -24,6 +24,9 @@ CSP = (
     "object-src 'none'; "
     "base-uri 'none'; "
     "form-action 'self'; "
+    # Narrowly scoped for the GPS-coordinate map embed in the entity inspector
+    # (image_geo results). Nothing else in the frontend uses an iframe.
+    "frame-src https://www.openstreetmap.org; "
     "frame-ancestors 'none'"
 )
 

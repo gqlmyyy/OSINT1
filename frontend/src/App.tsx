@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { CommandPalette } from '@/components/CommandPalette';
 import { Login } from '@/components/Login';
+import { ProviderHealthStrip } from '@/components/ProviderHealthStrip';
 import { InvestigationList } from '@/investigations/InvestigationList';
 import { Workspace } from '@/investigations/Workspace';
 import { useAuthStore } from '@/store/auth';
@@ -36,6 +38,16 @@ export function App() {
           </Link>
         )}
         <div className="ml-auto flex items-center gap-3 text-2xs text-fg-dim">
+          <ProviderHealthStrip />
+          <button
+            onClick={() =>
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+            }
+            className="rounded border border-line px-1.5 py-0.5 hover:border-line-bright hover:text-fg"
+            title="Command palette"
+          >
+            <kbd className="tabular-nums">⌘K</kbd>
+          </button>
           <span>
             {user.username} · {user.role}
           </span>
@@ -52,6 +64,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      <CommandPalette />
     </div>
   );
 }

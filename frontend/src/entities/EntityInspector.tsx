@@ -8,6 +8,7 @@ import {
   ExternalLink,
   KeyValue,
   Panel,
+  SkeletonEntityPanel,
   formatDate,
 } from '@/components/ui';
 import { useInvestigationStore } from '@/store/investigation';
@@ -38,7 +39,7 @@ function EntityDetailPanel({ entityId, onExpanded }: { entityId: string; onExpan
     queryFn: () => api.entity(entityId),
   });
 
-  if (isLoading) return <Panel title="Entity inspector"><Empty>Loading…</Empty></Panel>;
+  if (isLoading) return <Panel title="Entity inspector"><SkeletonEntityPanel /></Panel>;
   if (error || !data) {
     return <Panel title="Entity inspector"><Empty>Could not load this entity.</Empty></Panel>;
   }
@@ -76,7 +77,12 @@ function EntityDetailPanel({ entityId, onExpanded }: { entityId: string; onExpan
         </div>
         <div className="mt-2 flex items-center gap-2">
           <span className="text-2xs text-fg-dim">Confidence</span>
-          <Confidence value={data.confidence} />
+          <Confidence
+            value={data.display_confidence}
+            rawValue={data.confidence}
+            isStale={data.is_stale}
+            note={data.staleness_note}
+          />
         </div>
       </div>
 
@@ -148,6 +154,7 @@ function EntityDetailPanel({ entityId, onExpanded }: { entityId: string; onExpan
                     sha256 {observation.evidence[0].sha256.slice(0, 16)}…
                   </p>
                 )}
+                {observation.kind === 'image' && <GpsCard data={observation.data} />}
               </li>
             ))}
           </ul>
@@ -169,7 +176,7 @@ function RelationshipInspector({ relationshipId }: { relationshipId: string }) {
     queryFn: () => api.relationship(relationshipId),
   });
 
-  if (isLoading) return <Panel title="Relationship"><Empty>Loading…</Empty></Panel>;
+  if (isLoading) return <Panel title="Relationship"><SkeletonEntityPanel /></Panel>;
   if (!data) return <Panel title="Relationship"><Empty>Could not load this relationship.</Empty></Panel>;
 
   return (
@@ -221,6 +228,46 @@ function RelationshipInspector({ relationshipId }: { relationshipId: string }) {
         </Section>
       )}
     </Panel>
+  );
+}
+
+/** Image geolocation (spec: image_geo). A real marker only with real EXIF coordinates. */
+function GpsCard({ data }: { data: Record<string, unknown> }) {
+  const lat = typeof data.latitude === 'number' ? data.latitude : null;
+  const lon = typeof data.longitude === 'number' ? data.longitude : null;
+  const note = typeof data.note === 'string' ? data.note : null;
+
+  if (lat === null || lon === null) {
+    // has_exif / has_gps false, or an unsafe image — never show a bare empty map.
+    return (
+      <p className="mt-2 rounded border border-dashed border-line px-2 py-1.5 text-2xs text-fg-dim">
+        {note ?? 'No GPS coordinates in this image.'}
+      </p>
+    );
+  }
+
+  const delta = 0.01;
+  const bbox = `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`;
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+
+  return (
+    <div className="mt-2 overflow-hidden rounded border border-line">
+      <iframe
+        title="GPS location from image EXIF"
+        src={src}
+        className="h-40 w-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+      <div className="flex items-center justify-between gap-2 bg-ink-800 px-2 py-1 text-2xs">
+        <span className="tabular-nums text-fg-muted">
+          {lat.toFixed(5)}, {lon.toFixed(5)}
+        </span>
+        <ExternalLink href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`}>
+          Open map
+        </ExternalLink>
+      </div>
+    </div>
   );
 }
 
