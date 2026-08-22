@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.enums import Role, TargetType
+from app.graph.projection import decay_for_entity
 from app.jobs.orchestrator import ScanRequest
 from app.jobs.queue import get_queue
 from app.models import Entity, Investigation, Observation, Relationship
@@ -80,8 +81,12 @@ async def get_entity(
         }
         | ({str(entity.attributes["url"])} if entity.attributes.get("url") else set())
     )
+    decay = decay_for_entity(entity)
     return {
         **{c.name: getattr(entity, c.name) for c in entity.__table__.columns},
+        "display_confidence": decay.display_confidence,
+        "is_stale": decay.is_stale,
+        "staleness_note": decay.note,
         "identifiers": entity.identifiers,
         "observation_count": count,
         "relationships": relationships,

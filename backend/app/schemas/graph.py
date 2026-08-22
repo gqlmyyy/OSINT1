@@ -75,6 +75,9 @@ class RelationshipDetail(RelationshipOut):
 
 
 class EntityDetail(EntityOut):
+    display_confidence: float = 0.0
+    is_stale: bool = False
+    staleness_note: str | None = None
     identifiers: list[IdentifierOut] = Field(default_factory=list)
     observation_count: int = 0
     relationships: list[RelationshipOut] = Field(default_factory=list)
@@ -99,6 +102,9 @@ class GraphNode(StrictModel):
     label: str
     canonical_key: str
     confidence: float
+    display_confidence: float = Field(description="Age-discounted confidence for display")
+    is_stale: bool = False
+    staleness_note: str | None = None
     cluster: str
     degree: int
     depth: int

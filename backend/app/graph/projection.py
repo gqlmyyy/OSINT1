@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.enums import CORRELATION_EDGES, MatchBand, RelationshipType
+from app.evidence.decay import DecayResult, decay_with_half_life, half_life_for_sources
 from app.models import Entity, IdentityCandidate, Relationship
 
 
@@ -183,12 +184,16 @@ class GraphProjection:
 
 
 def _node(entity: Entity, degree: Counter[uuid.UUID], *, clustered: bool) -> dict[str, Any]:
+    decay = decay_for_entity(entity)
     return {
         "id": str(entity.id),
         "type": entity.type,
         "label": entity.label,
         "canonical_key": entity.canonical_key,
         "confidence": round(entity.confidence, 4),
+        "display_confidence": decay.display_confidence,
+        "is_stale": decay.is_stale,
+        "staleness_note": decay.note,
         "cluster": cluster_of(entity),
         "degree": degree.get(entity.id, 0),
         "depth": entity.depth,
@@ -201,6 +206,21 @@ def _node(entity: Entity, degree: Counter[uuid.UUID], *, clustered: bool) -> dic
     }
 
 
+def decay_for_entity(entity: Entity) -> DecayResult:
+    """Age-discounted confidence for display. See app/evidence/decay.py.
+
+    Uses the shortest half-life among the entity's sources — the most conservative
+    choice when an entity has been corroborated by sources that age at different
+    rates, so a single fast-decaying source is enough to flag it for re-verification.
+    """
+    return decay_with_half_life(
+        entity.confidence,
+        entity.last_seen,
+        half_life_for_sources(entity.sources),
+        label="Last observed",
+    )
+
+
 def _cluster_node(name: str, size: int) -> dict[str, Any]:
     return {
         "id": f"cluster:{name}",
@@ -208,6 +228,9 @@ def _cluster_node(name: str, size: int) -> dict[str, Any]:
         "label": f"{CLUSTER_LABELS.get(name, name.title())} ({size})",
         "canonical_key": f"cluster:{name}",
         "confidence": 1.0,
+        "display_confidence": 1.0,
+        "is_stale": False,
+        "staleness_note": None,
         "cluster": name,
         "degree": size,
         "depth": 1,
