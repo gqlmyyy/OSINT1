@@ -5,6 +5,7 @@ import type {
   GraphPayload,
   IdentityMatch,
   Investigation,
+  LinkedAccount,
   Observation,
   Page,
   PathResult,
@@ -12,6 +13,8 @@ import type {
   Relationship,
   RelationshipDetail,
   SearchHit,
+  SelfOsintReport,
+  SelfOsintSync,
   Source,
   TimelineEvent,
   TokenPair,
@@ -247,6 +250,32 @@ export const api = {
   aiStatus: () => request<{ enabled: boolean; provider: string; model: string; reachable: boolean }>(
     '/ai/status',
   ),
+
+  // -- self-OSINT: your own connected Instagram account ---------------------
+  // Every call is scoped to the authenticated user by the backend. None of these
+  // takes an account id: there is no identifier the client could tamper with.
+  selfInstagramAccount: () => request<LinkedAccount>('/self/instagram/account'),
+  selfInstagramConnect: () =>
+    request<{ authorize_url: string; scopes: string[]; provider: string }>(
+      '/self/instagram/connect',
+      { method: 'POST' },
+    ),
+  selfInstagramCallback: (payload: { code: string; state: string }) =>
+    request<LinkedAccount>('/self/instagram/callback', { method: 'POST', body: payload }),
+  selfInstagramSync: (force = false) =>
+    request<SelfOsintSync>(`/self/instagram/sync${force ? '?force=true' : ''}`, {
+      method: 'POST',
+    }),
+  selfInstagramReport: () => request<SelfOsintReport>('/self/instagram/report'),
+  selfInstagramDisconnect: () =>
+    request<{ disconnected: boolean; remote_revocation: boolean; instructions: string }>(
+      '/self/instagram/disconnect',
+      { method: 'DELETE' },
+    ),
+  selfInstagramDeleteData: () =>
+    request<{ deleted: boolean; removed: Record<string, number> }>('/self/instagram/data', {
+      method: 'DELETE',
+    }),
 };
 
 export type Target = import('./types').Target;

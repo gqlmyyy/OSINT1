@@ -100,6 +100,60 @@ INTERACTION_EDGES: frozenset[RelationshipType] = frozenset(
 )
 
 
+class TokenState(StrEnum):
+    """Lifecycle of a stored OAuth credential.
+
+    Every non-ACTIVE state is terminal until the user re-authorises: the platform never
+    silently retries a credential the provider has rejected.
+    """
+
+    ACTIVE = "active"
+    #: Past its expiry; a refresh may still be possible.
+    EXPIRED = "expired"
+    #: Withdrawn by the user, here or on the platform.
+    REVOKED = "revoked"
+    #: The provider rejected it (deleted app, changed password, malformed credential).
+    INVALID = "invalid"
+    #: Usable for nothing until the user grants consent again — e.g. scopes changed.
+    REAUTHORIZATION_REQUIRED = "reauthorization_required"
+
+
+class ExposureCategory(StrEnum):
+    """Buckets a self-audit finding can fall into. Drives the explainable score."""
+
+    IDENTITY = "identity_exposure"
+    USERNAME_REUSE = "username_reuse"
+    CONTACT = "contact_exposure"
+    LOCATION = "location_exposure"
+    ORGANIZATION = "organization_exposure"
+    EXTERNAL_LINKAGE = "external_account_linkage"
+    MEDIA = "public_media_exposure"
+    METADATA = "metadata_exposure"
+    EXTERNAL_MENTIONS = "external_mentions"
+
+
+class Severity(StrEnum):
+    INFO = "info"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class Availability(StrEnum):
+    """Why a piece of the audit does or does not have data behind it.
+
+    This exists so the UI can distinguish "we looked and found nothing" from "the API
+    does not offer this" — showing an empty section for both would misrepresent the
+    second as a negative finding.
+    """
+
+    AVAILABLE = "available"
+    NOT_AVAILABLE = "not_available"
+    REQUIRES_PERMISSION = "requires_permission"
+    NOT_EXPOSED = "not_exposed"
+    EXTERNAL_SOURCE = "external_source"
+
+
 class Assertion(StrEnum):
     """How strongly a statement is held. `inferred` is terminal and never promoted."""
 

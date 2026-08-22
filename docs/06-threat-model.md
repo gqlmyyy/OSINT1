@@ -67,6 +67,38 @@ design" below), independent of whether it is ever built.
 | Malicious plugin folder | plugins are **trusted code** — documented, loaded only from `PLUGINS_PATH`, never from an upload endpoint. There is no "install plugin from URL" API. Hard isolation (subprocess/WASM) is a stated non-goal for v1 |
 | Plugin bypassing the SSRF guard with its own `httpx.AsyncClient` | `ProviderContext.http` is the sanctioned client; a lint rule + code review gate direct client construction, and the built-in plugins are audited |
 
+## B5 — Stored third-party credentials (Self-OSINT OAuth)
+
+Holding somebody's Instagram token is the highest-value secret this platform stores. It is
+a new trust boundary: a database read, a log line, or a mixed-up row is enough to lose it.
+
+| Threat | Mitigation | Where | Test |
+|---|---|---|---|
+| Token readable from a database dump | AES-256-GCM at rest; key from `TOKEN_ENCRYPTION_KEY`, else HKDF-derived from `SECRET_KEY` under a purpose-specific info string (never the raw signing key) | `security/crypto.py` | `test_crypto.py::test_ciphertext_does_not_contain_the_plaintext` |
+| Ciphertext moved between users' rows | sealed with AAD naming owner + provider, so a swapped blob fails authentication | `crypto.account_aad` | `test_crypto.py::test_wrong_context_cannot_decrypt`, `test_selfosint.py::test_a_stored_token_cannot_be_read_with_another_users_context` |
+| Tampered ciphertext | AEAD tag verified; any failure is one opaque `DecryptionError` | `crypto.decrypt` | `test_crypto.py::test_tampered_ciphertext_is_rejected` |
+| Token leaking through the API | response models have **no field** that can carry one; built by hand, never from the ORM row | `schemas/selfosint.py` | `test_selfosint.py::test_no_endpoint_ever_returns_the_token` |
+| Token leaking through logs or audit rows | `Secret` renders as `Secret(***)`; grants log only a redacted view; Meta error bodies truncated and never echoed | `crypto.Secret`, `instagram_oauth._describe_failure` | `test_selfosint.py::test_the_token_never_reaches_the_logs`, `::test_the_token_is_not_written_to_the_audit_log` |
+| Token leaking into stored evidence | provider rebuilds `raw` field-by-field from documented response fields | `plugins/self_osint/instagram_self` | `test_instagram_self.py::test_the_token_never_appears_in_stored_evidence` |
+| CSRF on the OAuth callback | `state` is single-use, expiring, and bound to the authenticated user; only its SHA-256 is stored | `selfosint/service.py::_consume_state` | `test_selfosint.py::test_callback_rejects_a_state_issued_to_another_user`, `::test_state_is_single_use` |
+| Replaying a state from a database read | raw value never persisted | same | `test_selfosint.py::test_the_raw_state_is_not_stored` |
+| IDOR across users' audits | no endpoint accepts an account/user/investigation id; the account is resolved *from* the caller | `api/routes/selfosint.py` | `test_selfosint.py::test_a_user_cannot_*` (5 tests) + `::test_the_client_cannot_assert_ownership_of_an_arbitrary_account` |
+| Client claiming an arbitrary Instagram account | `provider_account_id` is recorded from Meta's token exchange, never from request input | `service._store_grant` | same |
+| Cross-user cache poisoning | the self provider runs with `use_cache=False`; the cache key does not include the credential | `selfosint/service.py` | `docs/03 §3.2` |
+| App secret exposed in a browser URL | exchanged in a POST body, never a query string | `instagram_oauth.exchange_code` | `test_selfosint_oauth_client.py::test_exchange_posts_the_secret_in_the_body_not_the_url` |
+| Sync abuse / API-quota exhaustion | per-user cooldown returning `429 Retry-After`; no continuous polling | `service._enforce_cooldown` | `test_selfosint.py::test_sync_is_rate_limited` |
+| A revoked credential silently still in use | explicit token states, committed on the error path so the user is actually told to reconnect | `service._mark_token` | `test_selfosint.py::test_a_rejected_token_moves_to_reauthorization_required` |
+
+The unauthenticated `GET /self/instagram/callback` is deliberately inert: with bearer-token
+auth there is no session on a bare browser redirect, so it validates nothing, exchanges
+nothing and stores nothing — it forwards the opaque parameters to the SPA, which completes
+the flow authenticated.
+
+**Deletion.** `DELETE /self/instagram/data` removes the credential, the audit
+investigation and every entity, observation, relationship and candidate under it. Audit-log
+rows survive by design: they record that an action happened and by whom, never what was
+found.
+
 ## B1 — Browser ↔ API
 
 | Threat | Mitigation |

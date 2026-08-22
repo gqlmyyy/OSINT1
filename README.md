@@ -28,6 +28,7 @@ example_username ┼── X
 - [Quick start](#quick-start)
 - [Architecture](#architecture)
 - [Providers](#providers)
+- [Self-OSINT / Instagram account](#self-osint--instagram-account)
 - [Confidence and correlation](#confidence-and-correlation)
 - [Security](#security)
 - [Development](#development)
@@ -197,6 +198,131 @@ it cannot run gets no jobs planned at all.
 
 ---
 
+## Self-OSINT / Instagram account
+
+A privacy audit of an account **you own or are authorised to manage**. You connect your
+own Instagram account through Meta's official OAuth flow; the platform reads what the
+API returns about *that* account, then runs its ordinary public-source providers over the
+identifiers the account exposes — the same search a stranger could run — and reports what
+is findable, with evidence.
+
+Open **Self-OSINT** in the header, or go to `/self-osint/instagram`.
+
+### What it does not do
+
+Connecting an account grants access to **that account only**. It confers no ability to
+read anyone else's Instagram data, and no endpoint here accepts an Instagram account id
+from the client — the account is always resolved from the authenticated user. Each user
+of a deployment holds their own separate connection and their own token; nothing is
+shared between users.
+
+### Which API, and why
+
+Instagram's **Basic Display API was shut down on 2024-12-04**. Its `user_profile` /
+`user_media` scopes are dead, and code written against it cannot work. This feature uses
+**Instagram API with Instagram Login** (`graph.instagram.com`), the successor that lets a
+person authorise with their Instagram credentials directly, without dragging a Facebook
+Page into it. It requires an Instagram **Business or Creator** account; Meta's API does
+not support personal accounts.
+
+### Permissions requested
+
+| Scope | What it unlocks | Default |
+|---|---|---|
+| `instagram_business_basic` | profile fields, follower/following/media counts, your media with captions and permalinks | requested |
+| `instagram_business_manage_comments` | comments left on your own media | optional, off |
+
+Nothing else is requested. Messaging, publishing and insights scopes are deliberately not
+asked for.
+
+### What the official API provides — and what it does not
+
+The audit page renders this as a live table for your connection, because the distinction
+matters: an empty panel would otherwise read as "nothing found" when the truth is "Meta
+does not expose this to anybody".
+
+**Available:** username, name, biography, website, account type, profile picture URL,
+follower/following/media *counts*, your media (caption, permalink, timestamp, type, like
+and comment counts), and — with the comments scope — comments on your own posts.
+
+**Not available through the official API, at any permission level:**
+
+- the **lists** of who follows you or who you follow (counts only)
+- who viewed your profile (Instagram does not collect or expose this to anyone; tools
+  claiming otherwise are fabricating it)
+- your registered email address or phone number
+- media location / GPS history
+- direct messages
+- stories and story viewers
+- any account other than the one you authorised
+
+Where a capability is unavailable the UI says **NOT AVAILABLE** and explains why. The
+platform does not scrape around any of it.
+
+### How tokens are protected
+
+- Encrypted at rest with **AES-256-GCM** (`backend/app/security/crypto.py`). The
+  ciphertext is bound to its owner via additional authenticated data, so a blob copied
+  into another user's row does not decrypt.
+- The key comes from `TOKEN_ENCRYPTION_KEY` when set, otherwise it is derived from
+  `SECRET_KEY` with HKDF under a purpose-specific info string — never the raw signing key.
+- **No API response contains a token**, and the response models have no field that could
+  carry one. Tokens are excluded from logs, from audit-log metadata, and from stored
+  evidence; error messages from Meta are truncated and never echo the failing request.
+- OAuth `state` is single-use, expiring, and bound to the authenticated user who started
+  the flow. Only its SHA-256 is stored, so a database read cannot be replayed as a
+  callback.
+- Token lifecycle is explicit: `active`, `expired`, `revoked`, `invalid`,
+  `reauthorization_required`. A rejected credential is recorded with a reason and the UI
+  asks you to reconnect rather than showing an empty report.
+
+### Disconnecting vs deleting
+
+| | Disconnect | Delete collected data |
+|---|---|---|
+| Stored credential | destroyed | destroyed |
+| Synchronisation | stops | stops |
+| Findings, entities, observations | **kept** | **erased** |
+| Security audit records | kept | kept |
+
+Instagram Login provides **no server-side token revocation endpoint** (unlike Facebook
+Login's `DELETE /{user-id}/permissions`), so the app does not claim to revoke on Meta's
+side. Disconnecting destroys the credential locally — this application stops using it
+immediately either way — and the UI links you to
+<https://www.instagram.com/accounts/manage_access/> to withdraw the app's access on
+Instagram itself.
+
+### Configuring Meta credentials
+
+1. Create an app at <https://developers.facebook.com/>.
+2. Add the product **Instagram API with Instagram Login**.
+3. Register your redirect URI exactly as deployed, e.g.
+   `http://localhost:8080/self-osint/instagram/callback`.
+4. Copy the Instagram app ID and secret into `.env`:
+
+```bash
+INSTAGRAM_APP_ID=...
+INSTAGRAM_APP_SECRET=...
+INSTAGRAM_REDIRECT_URI=http://localhost:8080/self-osint/instagram/callback
+INSTAGRAM_SCOPES=instagram_business_basic
+```
+
+Leave `INSTAGRAM_APP_ID` blank to keep the feature off; the UI then explains that an
+administrator has not configured it, rather than failing at the redirect.
+
+> `INSTAGRAM_ACCESS_TOKEN` / `INSTAGRAM_BUSINESS_ACCOUNT_ID` are a **different, older**
+> setting used by the separate `plugins/social/instagram` provider, which reads *other*
+> public business profiles with one operator-wide credential. They play no part in this
+> per-user OAuth flow and are not sufficient for it.
+
+### Sync behaviour
+
+Instagram is not polled continuously. A sync runs once after a successful connection, and
+otherwise only when you ask for one; repeat requests inside a cooldown window
+(`SELF_OSINT_SYNC_COOLDOWN_SECONDS`, default 120s) are refused with `429`.
+
+---
+
 ## Confidence and correlation
 
 The tool never says *"this is the same person."* It says:
@@ -353,6 +479,11 @@ for doing so lawfully.
   location data about wherever the photo was taken — treat it with the same minimisation
   and retention discipline as any other personal data, and remember it may describe a
   location the subject did not intend to disclose.
+- **Self-OSINT is for accounts you own.** The "Add your Instagram account" feature is a
+  privacy audit of your own exposure, authorised through Meta's official OAuth flow by
+  the account holder. Connecting an account you do not own or manage violates Meta's
+  terms and, depending on how you obtained access, computer-misuse law. The connection
+  reads only the authorised account and grants no access to anyone else's data.
 - **Breach lookups (`plugins/breach/hibp`) report membership, never content.** The tool
   stores only which breach, when, and where it was reported — never any leaked
   credential, password, or other exposed field, which HIBP's API does not return to any

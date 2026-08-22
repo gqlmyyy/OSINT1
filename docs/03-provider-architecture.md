@@ -73,6 +73,8 @@ plugins/
 ├── holehe/provider.py      ─┘
 ├── breach/
 │   └── hibp/provider.py    (breach *metadata* via the official HIBP API)
+├── self_osint/
+│   └── instagram_self/provider.py  (your *own* account, per-user OAuth token)
 └── social/
     ├── mastodon/provider.py   (public API, unauthenticated)
     ├── instagram/provider.py  (official API only)
@@ -102,6 +104,23 @@ or defeating an access control this project will not defeat:
 * a source-level (not docstring-level) AST policy test asserts the file contains no
   session/cookie/CAPTCHA/bot-token/browser-automation machinery in executable code, so a
   future edit that adds a bypass fails the suite instead of silently shipping.
+
+### 3.2 Per-run credentials (`instagram_self`)
+
+Most providers get their configuration from the `sources` table, which is deployment-wide.
+The self-audit provider cannot: its credential belongs to *one user*, and two users must
+never share one. `ProviderRunner.run()` therefore accepts an optional `config` overlay,
+applied to that call only, which `app/selfosint/service.py` populates with the requesting
+user's own decrypted token.
+
+Two consequences worth stating, because getting either wrong would be a data-isolation bug:
+
+* the runner for this path is constructed with **`use_cache=False`** — the provider cache
+  is keyed by provider + target, so two users auditing accounts with the same handle would
+  otherwise collide on one cache entry;
+* the provider's registry-level `health_check()` is permanently `unavailable`, because
+  there is no global credential to check. Availability is per user and is reported by the
+  Self-OSINT endpoints instead.
 
 `tiktok` and `linkedin` take this to its logical end: since neither platform has *any*
 unauthenticated path, their providers are pure declarations — `search()` never makes a

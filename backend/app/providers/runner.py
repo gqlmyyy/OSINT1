@@ -42,7 +42,21 @@ class ProviderRunner:
             return self._http_factory(timeout)
         return SafeAsyncClient(self.settings, timeout=timeout)
 
-    async def run(self, entry: RegisteredProvider, target: Target) -> ProviderResult:
+    async def run(
+        self,
+        entry: RegisteredProvider,
+        target: Target,
+        *,
+        config: dict[str, Any] | None = None,
+    ) -> ProviderResult:
+        """Run one provider against one target.
+
+        ``config`` overlays the registry's source-level config for this call only. It
+        exists for per-user credentials (the Self-OSINT flow passes the requesting
+        user's own OAuth token) and is never persisted or cached: callers supplying it
+        must also construct the runner with ``use_cache=False``, since the cache key does
+        not include the config.
+        """
         started = time.monotonic()
         caps = entry.capabilities
         limits = caps.rate_limit
@@ -69,7 +83,11 @@ class ProviderRunner:
                 await bucket.acquire(entry.name)
                 async with semaphore:
                     client = self._client(limits.timeout_seconds)
-                    ctx = ProviderContext(client, settings=self.settings, config=entry.config)
+                    ctx = ProviderContext(
+                        client,
+                        settings=self.settings,
+                        config={**entry.config, **(config or {})},
+                    )
                     try:
                         observations = await asyncio.wait_for(
                             entry.provider.search(target, ctx),

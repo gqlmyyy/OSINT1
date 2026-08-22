@@ -11,7 +11,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import install_error_handlers
-from app.api.routes import ai, analytics, auth, demo, entities, health, investigations, sources, ws
+from app.api.routes import (
+    ai,
+    analytics,
+    auth,
+    demo,
+    entities,
+    health,
+    investigations,
+    selfosint,
+    sources,
+    ws,
+)
 from app.core.config import get_settings
 from app.core.db import create_all, dispose_engine, get_sessionmaker
 from app.core.logging import configure_logging
@@ -90,7 +101,9 @@ def create_app(*, with_lifespan: bool = True, **overrides: Any) -> FastAPI:
 
     app.include_router(health.router)
     prefix = settings.api_prefix
-    for module in (auth, investigations, entities, analytics, sources, ai, demo, ws):
+    for module in (
+        auth, investigations, entities, analytics, sources, ai, demo, selfosint, ws
+    ):
         app.include_router(module.router, prefix=prefix)
 
     return app

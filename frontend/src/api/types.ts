@@ -284,6 +284,116 @@ export type LiveEvent =
   | { event: 'investigation_completed'; stats: GraphStats; jobs: number; matches: number; errors: string[] }
   | { event: 'error'; provider: string; message: string };
 
+// -- self-OSINT (your own connected account) -----------------------------------
+
+/** Why a section of the self-audit does or does not have data behind it. */
+export type Availability =
+  | 'available'
+  | 'not_available'
+  | 'requires_permission'
+  | 'not_exposed'
+  | 'external_source';
+
+export type TokenState =
+  | 'active'
+  | 'expired'
+  | 'revoked'
+  | 'invalid'
+  | 'reauthorization_required';
+
+export interface Capability {
+  key: string;
+  label: string;
+  availability: Availability;
+  note: string;
+  requires_scope: string;
+}
+
+/**
+ * Everything the frontend is allowed to know about a connection. There is deliberately
+ * no token field here, and the backend response model has none either.
+ */
+export interface LinkedAccount {
+  connected: boolean;
+  provider: string;
+  username: string | null;
+  account_type: string | null;
+  provider_account_id: string | null;
+  token_state: TokenState | null;
+  token_state_detail: string;
+  expires_at: string | null;
+  scopes: string[];
+  last_synced_at: string | null;
+  investigation_id: string | null;
+  sync_meta: Record<string, unknown>;
+  capabilities: Capability[];
+  oauth_configured: boolean;
+  revocation_instructions: string;
+}
+
+export interface SelfOsintEvidence {
+  label: string;
+  source: string;
+  url: string | null;
+  entity_id: string | null;
+  observation_id: string | null;
+}
+
+export type ExposureSeverity = 'high' | 'medium' | 'low' | 'info';
+
+export interface ExposureFinding {
+  category: string;
+  severity: ExposureSeverity;
+  title: string;
+  description: string;
+  mitigation: string;
+  confidence: number;
+  availability: Availability;
+  evidence: SelfOsintEvidence[];
+}
+
+export interface ExposureCorrelation {
+  signal: string;
+  source: string;
+  confidence: number;
+  explanation: string;
+  /** False for weak signals such as a shared username — never rendered as identity. */
+  identity_claim: boolean;
+  evidence: SelfOsintEvidence[];
+}
+
+export interface CategoryScore {
+  category: string;
+  score: number;
+  contributions: { title: string; severity: string; points: number; evidence_count: number }[];
+}
+
+export interface ExposureScore {
+  overall: number;
+  level: 'none' | 'low' | 'moderate' | 'high';
+  categories: CategoryScore[];
+  explanation: string;
+}
+
+export interface SelfOsintReport {
+  account: LinkedAccount;
+  findings: ExposureFinding[];
+  correlations: ExposureCorrelation[];
+  score: ExposureScore;
+  counts: Record<string, number>;
+  generated_at: string;
+}
+
+export interface SelfOsintSync {
+  synced: boolean;
+  observations: number;
+  entities: number;
+  relationships: number;
+  external_providers_run: number;
+  errors: string[];
+  last_synced_at: string | null;
+}
+
 // -- social intelligence layer -------------------------------------------------
 
 export interface Finding {

@@ -6,6 +6,7 @@ from app.models.evidence import Evidence, Observation
 from app.models.graph import Entity, Identifier, IdentityCandidate, Relationship
 from app.models.investigation import Investigation, Note, Tag, Target
 from app.models.job import Job, ProviderRun
+from app.models.linked_account import LinkedAccount, LinkedAccountRevocation, OAuthState
 from app.models.source import Source
 from app.models.user import User
 
@@ -17,7 +18,10 @@ __all__ = [
     "IdentityCandidate",
     "Investigation",
     "Job",
+    "LinkedAccount",
+    "LinkedAccountRevocation",
     "Note",
+    "OAuthState",
     "Observation",
     "ProviderRun",
     "Relationship",

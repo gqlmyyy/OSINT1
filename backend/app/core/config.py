@@ -48,6 +48,11 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173"]
     )
     api_rate_limit_per_minute: int = 240
+    #: Url-safe base64 of exactly 32 bytes. Optional: when unset, the data-encryption key
+    #: is derived from SECRET_KEY via HKDF under a purpose-specific info string (see
+    #: app/security/crypto.py). Set it explicitly to rotate credential encryption
+    #: independently of JWT signing.
+    token_encryption_key: str | None = None
 
     # -- egress / SSRF guard ---------------------------------------------------
     allow_private_networks: bool = False
@@ -68,6 +73,33 @@ class Settings(BaseSettings):
     holehe_binary: str = "holehe"
     external_tool_timeout_seconds: float = 180.0
 
+    # -- self-OSINT: Instagram Login OAuth (per user, never a shared account) ---
+    # These identify *your Meta app*, not any account: each user authorises their own
+    # Instagram account through it and gets their own token. See README "Self-OSINT".
+    instagram_app_id: str | None = None
+    instagram_app_secret: str | None = None
+    #: Must exactly match a redirect URI registered on the Meta app.
+    instagram_redirect_uri: str = "http://localhost:8080/self-osint/instagram/callback"
+    #: Hosts and version are configurable because Meta moves both; pinning them in code
+    #: would make a documented API change into a code change.
+    instagram_oauth_authorize_url: str = "https://www.instagram.com/oauth/authorize"
+    # The suppression below is because this is the public token *endpoint* URL, which
+    # the linter flags on the "token" in its name; it is not a secret.
+    instagram_oauth_token_url: str = "https://api.instagram.com/oauth/access_token"  # noqa: S105
+    instagram_graph_host: str = "https://graph.instagram.com"
+    instagram_api_version: str = "v23.0"
+    #: Instagram Login scopes. `instagram_business_basic` covers profile + media;
+    #: comments need `instagram_business_manage_comments`. Basic Display's old
+    #: user_profile/user_media scopes are dead (API shut down 2024-12-04).
+    instagram_scopes: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["instagram_business_basic"]
+    )
+    #: OAuth authorisation requests expire quickly; a state that outlives its flow is a
+    #: replay window.
+    oauth_state_ttl_seconds: int = 600
+    #: Manual re-sync floor, per user. Instagram is not polled continuously.
+    self_osint_sync_cooldown_seconds: int = 120
+
     # -- investigation budgets (spec 19) ---------------------------------------
     max_depth: int = 3
     max_entities: int = 500
@@ -87,7 +119,7 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5"
     llm_timeout_seconds: float = 120.0
 
-    @field_validator("cors_origins", "allowed_egress_ports", mode="before")
+    @field_validator("cors_origins", "allowed_egress_ports", "instagram_scopes", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
         if isinstance(value, str):
@@ -116,6 +148,15 @@ class Settings(BaseSettings):
             if "*" in self.cors_origins:
                 raise ValueError("CORS_ORIGINS may not be '*' in production")
         return self
+
+    @property
+    def instagram_oauth_configured(self) -> bool:
+        """Whether an operator has supplied Meta app credentials for the OAuth flow."""
+        return bool(self.instagram_app_id and self.instagram_app_secret)
+
+    @property
+    def instagram_graph_base(self) -> str:
+        return f"{self.instagram_graph_host.rstrip('/')}/{self.instagram_api_version}"
 
     @property
     def is_postgres(self) -> bool:

@@ -5,7 +5,14 @@ import { Login } from '@/components/Login';
 import { ProviderHealthStrip } from '@/components/ProviderHealthStrip';
 import { InvestigationList } from '@/investigations/InvestigationList';
 import { Workspace } from '@/investigations/Workspace';
+import { SelfOsintInstagram } from '@/selfosint/SelfOsintInstagram';
 import { useAuthStore } from '@/store/auth';
+
+/** Forwards Meta's OAuth redirect to the audit page with ?code&state intact. */
+function CallbackForward() {
+  const location = useLocation();
+  return <Navigate to={`/self-osint/instagram${location.search}`} replace />;
+}
 
 export function App() {
   const user = useAuthStore((s) => s.user);
@@ -37,6 +44,17 @@ export function App() {
             ← all investigations
           </Link>
         )}
+        <Link
+          to="/self-osint/instagram"
+          className={
+            location.pathname.startsWith('/self-osint')
+              ? 'text-2xs text-accent'
+              : 'text-2xs text-fg-dim hover:text-accent'
+          }
+          title="Audit an account you own"
+        >
+          Self-OSINT
+        </Link>
         <div className="ml-auto flex items-center gap-3 text-2xs text-fg-dim">
           <ProviderHealthStrip />
           <button
@@ -61,6 +79,10 @@ export function App() {
         <Routes>
           <Route path="/" element={<InvestigationList />} />
           <Route path="/investigations/:id" element={<Workspace />} />
+          <Route path="/self-osint/instagram" element={<SelfOsintInstagram />} />
+          {/* Meta's registered redirect URI may point here; the page reads ?code&state,
+              so the query string has to survive the hop. */}
+          <Route path="/self-osint/instagram/callback" element={<CallbackForward />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
